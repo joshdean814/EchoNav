@@ -5,7 +5,6 @@ from typing import List
 def find_closest(nearby_obj: List[Collision]) -> None:
     raise NotImplementedError()
 
-
 # Plays the beep object on the speaker.
 def emit_beep(closest_obj: Collision) -> None:
     raise NotImplementedError()
