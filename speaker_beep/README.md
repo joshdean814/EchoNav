@@ -1,12 +1,11 @@
 # Speaker Beep
 This module is responsible for emitting a beep on the audio-jack connection of the RaspberryPi.
 
-Author: Yihang Feng
-Date Modified: 09/30/2025
+**Author:** Yihang Feng \\
+**Date Modified:** 09/30/2025
 
 ## Overview
-The code attempts to read `Collision` objects containing distance information to nearby
-foreign objects relative to the 4 corners of the car.
+The code attempts to read `Collision` objects containing distance information to nearby foreign objects relative to the 4 corners of the car.
 
 ### Strategy
 The code implements the following functions:
