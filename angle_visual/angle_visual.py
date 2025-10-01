@@ -1,4 +1,8 @@
-from ..common_api.angle import *
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
+from common_api.angle import AngleReading
 import numpy as np
 from numpy.typing import NDArray
 import glowbit
@@ -63,3 +67,12 @@ def draw_grid(coords: NDArray) -> None:
 
     # Display the matrix.
     matrix.show()
+
+def print_grid(coords: NDArray) -> None:
+    """Debugging only method to visualize current matrix.
+    
+    Args:
+        coords (NDArray): 8x8 array containing the illuminated coordinates.
+    """
+    for row in coords:
+        print(" ".join("█" if cell else " " for cell in row))

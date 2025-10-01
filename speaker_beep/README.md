@@ -2,13 +2,14 @@
 This module is responsible for emitting a beep on the audio-jack connection of the RaspberryPi.
 
 **Author:** Yihang Feng <br>
-**Date Modified:** 09/30/2025
+**Last Modified:** 10/01/2025
 
 ## Overview
-The code attempts to read `Collision` objects containing distance information to nearby foreign objects relative to the 4 corners of the car.
+The code implements the SpeakerBeep class to control to read `Collision` objects containing distance information to nearby foreign objects relative to the 4 corners of the car. With these distances, it controls a beep emitted on the speaker.
 
 ### Strategy
 The code implements the following functions:
-- `find_closest` -> Identifies the nearest "threat" to the car based on distance detector readings.
-- `get_freq` -> Maps a distance float value to a frequency to be played on the speaker.
--`emit_beep` -> Plays the beep object on the speaker.
+- `update_closest` -> Identifies the nearest "threat" to the car based on distance detector readings.
+- `update_duration` -> Maps a duration float value in sec for each iteration of the beep.
+- `emit_beep` -> Plays the beep object on the speaker using sounddevice.
+- `stop_beep` -> Stops any active beeping using sounddevice.
