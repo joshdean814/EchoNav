@@ -10,7 +10,7 @@ class CarCorner(IntEnum):
     FRONT_RIGHT = 4
 
 @dataclass
-class Collision:
+class DistanceReading:
     corner: CarCorner
     distance: Optional[float]
-    timestamp: datetime = field(lambda: datetime.now())
+    timestamp: datetime = field(default_factory=datetime.now)

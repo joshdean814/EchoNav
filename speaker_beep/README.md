@@ -5,7 +5,7 @@ This module is responsible for emitting a beep on the audio-jack connection of t
 **Last Modified:** 10/01/2025
 
 ## Overview
-The code implements the SpeakerBeep class to control to read `Collision` objects containing distance information to nearby foreign objects relative to the 4 corners of the car. With these distances, it controls a beep emitted on the speaker.
+The code implements the SpeakerBeep class to control to use `DistanceReading` objects containing distance information to nearby foreign objects relative to the 4 corners of the car. With these distances, it controls a beep emitted on the speaker.
 
 ### Strategy
 The code implements the following functions:
