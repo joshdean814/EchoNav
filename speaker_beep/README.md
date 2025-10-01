@@ -1,7 +1,7 @@
 # Speaker Beep
 This module is responsible for emitting a beep on the audio-jack connection of the RaspberryPi.
 
-**Author:** Yihang Feng \\
+**Author:** Yihang Feng <br>
 **Date Modified:** 09/30/2025
 
 ## Overview

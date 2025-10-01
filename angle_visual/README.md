@@ -1,8 +1,8 @@
 # Angle Visual
 This module is responsible for displaying the current steering vector.
 
-**Author:** Anju Damodaran \\
-**Date Modified:** 09/30/2025
+**Author:** Anju Damodaran <br>
+**Date Modified:** 10/01/2025
 
 ## Overview
 The code attempts to read `AngleReading` objects and map valid angles to a vector displayed on the RaspberryPi's 8x8 LED interface. It expects an input angle in the range of [-10°, 10], where 0° is centered, -10° is all the way left, and 10° is all the way right.
