@@ -9,7 +9,6 @@ The code attempts to read `AngleReading` objects and map valid angles to a vecto
 
 ### Strategy
 The code implements the following functions:
-- `check_angle` -> Validates provided `AngleReading`.
-- `map_angle_to_coords` -> uses the angle to create a 2D, 8x8 numpy array containing the current vector data.
-- `create_grid` -> Creates a Pillow grid object using the pixel data.
-- `draw_grid` -> Draws the actual grid on the Python LED interface.
+- `check_angle` -> Validates provided `AngleReading` & passes it forwards.
+- `get_coords_from_angle` -> uses the angle to create a 2D, 8x8 numpy array containing the current pixel data.
+- `draw_grid` -> Uses glowbit to activate the Pi LED grid using coordinate information.
