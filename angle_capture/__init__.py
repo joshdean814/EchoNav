@@ -1,7 +1,7 @@
 import time
 import glowbit
 
-# --- Setup GlowBit Matrix (8x8) ---
+# --- Setup GlowBit 8x8 Matrix ---
 matrix = glowbit.matrix8x8()
 matrix.pixelsFill((0, 0, 0))
 matrix.pixelsShow()
@@ -13,70 +13,67 @@ def clear():
     matrix.pixelsShow()
 
 
-# --- Helper: Convert (row, col) -> GlowBit index ---
+# --- Convert (row, col) -> LED index (0-63) ---
 def rc_to_index(row, col):
-    return row * 8 + col  # 8 columns per row
+    return row * 8 + col
 
 
-# --- Draw arrow ---
-def draw_arrow(direction="straight", color=(255, 0, 0)):
-    clear()
-    arrow_pixels = []
-
-    if direction == "straight":  # UP arrow
-        # vertical shaft
-        for r in range(3, 8):
-            arrow_pixels.append(rc_to_index(r, 3))
-            arrow_pixels.append(rc_to_index(r, 4))
-        # tip
-        arrow_pixels += [
-            rc_to_index(2, 2), rc_to_index(2, 5),
-            rc_to_index(1, 1), rc_to_index(1, 6),
-            rc_to_index(0, 0), rc_to_index(0, 7)
+# --- Arrow patterns (rows, cols for 8x8) ---
+def arrow_pattern(direction):
+    if direction == "straight":   # UP arrow
+        return [
+            (7,3),(7,4),
+            (6,3),(6,4),
+            (5,3),(5,4),
+            (4,3),(4,4),
+            (3,2),(3,5),
+            (2,1),(2,6),
+            (1,0),(1,7)
         ]
-
     elif direction == "left":
-        for c in range(2, 7):
-            arrow_pixels.append(rc_to_index(4, c))
-            arrow_pixels.append(rc_to_index(3, c))
-        arrow_pixels += [
-            rc_to_index(2, 2), rc_to_index(5, 2),
-            rc_to_index(1, 1), rc_to_index(6, 1),
-            rc_to_index(0, 0), rc_to_index(7, 0)
+        return [
+            (3,6),(4,6),(3,5),(4,5),(3,4),(4,4),  # shaft
+            (3,3),(4,3),
+            (2,2),(5,2),
+            (1,1),(6,1),
+            (0,0),(7,0)   # tip
         ]
-
     elif direction == "right":
-        for c in range(1, 6):
-            arrow_pixels.append(rc_to_index(4, c))
-            arrow_pixels.append(rc_to_index(3, c))
-        arrow_pixels += [
-            rc_to_index(2, 5), rc_to_index(5, 5),
-            rc_to_index(1, 6), rc_to_index(6, 6),
-            rc_to_index(0, 7), rc_to_index(7, 7)
+        return [
+            (3,1),(4,1),(3,2),(4,2),(3,3),(4,3),  # shaft
+            (3,4),(4,4),
+            (2,5),(5,5),
+            (1,6),(6,6),
+            (0,7),(7,7)   # tip
         ]
+    else:
+        return []
 
-    # Light up pixels
-    for i in arrow_pixels:
-        matrix.pixelSet(i, color)
 
+# --- Draw arrow on 8x8 matrix ---
+def draw_arrow(direction="straight", color=(0, 255, 0)):
+    clear()
+    for (r, c) in arrow_pattern(direction):
+        idx = rc_to_index(r, c)
+        matrix.pixelSet(idx, color)
     matrix.pixelsShow()
 
 
-# --- Decide arrow based on tyre angle ---
+# --- Map tyre angle (-10°..10°) to arrow ---
 def angle_to_arrow(theta):
-    if -15 <= theta <= 15:
+    if -2 <= theta <= 2:
         return "straight"
-    elif theta < -15:
+    elif theta < -2:
         return "left"
-    elif theta > 15:
+    elif theta > 2:
         return "right"
 
 
-# --- Main loop (simulate tyre angles) ---
-test_angles = [0, -30, 30, -10, 12, 60]
+# --- Demo loop (simulate tyre angles) ---
+test_angles = [-10, -5, 0, 5, 10]
 
 for angle in test_angles:
     direction = angle_to_arrow(angle)
     print(f"Tyre angle: {angle}° -> {direction}")
     draw_arrow(direction, (0, 255, 0))
-    time.sleep(1)
+    time.sleep(2)
