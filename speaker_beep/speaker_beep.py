@@ -6,6 +6,7 @@ from common_api.distance import DistanceReading
 import numpy as np
 import sounddevice as sd
 from typing import List, Optional
+import time
 
 SAMP_RATE = 44100          
 FREQ = 1250.0
@@ -61,3 +62,23 @@ class SpeakerBeep():
             sd.stop()
         except:
             pass
+
+    def alarm_loop(self, get_distance_func):
+        """
+        Continuously beep while in alarm range.
+        get_distance_func: a function that returns current distance (float or None)
+        """
+        print("Entering alarm loop. Will beep until out of alarm range (>50cm).")
+        while True:
+            dist = get_distance_func()
+            if dist is None or dist > 50:
+                print("Out of alarm range. Exiting alarm loop.")
+                self._stop_beep()
+                break
+            self._closest_dist = dist
+            self._update_duration()
+            if self._curr_duration:
+                self.play_beep()
+                time.sleep(self._curr_duration)
+            else:
+                time.sleep(1.0)

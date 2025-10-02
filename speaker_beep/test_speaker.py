@@ -186,6 +186,26 @@ def test_continuous_beeping():
     print("✓ Continuous beeping test completed!")
     return True
 
+def test_constant_distance():
+    """Test if beep interval remains stable when distance is constant"""
+    print("\nTesting beep interval with constant distance...")
+    beep = SpeakerBeep()
+    constant_distance = 20  # 20cm, should result in 1.5s interval
+    objects = [MockDistanceReading(constant_distance)]
+    beep.update_closest(objects)
+    interval = beep._curr_duration
+    print(f"Distance: {constant_distance}cm | Expected interval: 1.5s | Actual interval: {interval}s")
+    if interval != 1.5:
+        print(f"✗ Interval incorrect, actual: {interval}s")
+        return False
+    print("Playing beep 3 times, interval should be consistent...")
+    for i in range(3):
+        print(f"  Beep {i+1}...")
+        beep.play_beep()
+        time.sleep(interval)
+    print("✓ Beep interval is stable when distance is constant!")
+    return True
+
 def interactive_test():
     """Interactive test for manual verification with actual audio"""
     print("\nInteractive Test Mode with Audio")
@@ -221,47 +241,96 @@ def interactive_test():
             print("Please enter a valid number or 'q' to quit")
 
 def main():
-    """Main test function"""
     print("SpeakerBeep Class Test")
     print("Test the current version of speakerbeep")
     print("Beep interval: 0.5s (<10cm), 1.5s (10-30cm), 3.0s (30-50cm), None (>50cm)")
     print("=" * 70)
-    
+
     if not test_audio_system():
         print("\nAudio system is not working. Please check your speakers and volume.")
         return
-    
+
     all_passed = True
-    
+
     try:
         all_passed &= test_basic_functionality()
     except Exception as e:
         print(f"Basic functionality test failed: {e}")
         all_passed = False
-        
+
     try:
         all_passed &= test_audio_playback()
     except Exception as e:
         print(f"Audio playback test failed: {e}")
         all_passed = False
-        
+
     try:
         all_passed &= test_backup_simulation()
     except Exception as e:
         print(f"Backup simulation test failed: {e}")
         all_passed = False
-        
+
     try:
         all_passed &= test_stop_functionality()
     except Exception as e:
         print(f"Stop functionality test failed: {e}")
         all_passed = False
-        
+
     try:
         all_passed &= test_continuous_beeping()
     except Exception as e:
         print(f"Continuous beeping test failed: {e}")
         all_passed = False
+
+    try:
+        all_passed &= test_constant_distance()
+    except Exception as e:
+        print(f"Constant distance test failed: {e}")
+        all_passed = False
+
+    # Test continuous alarm loop
+    try:
+        all_passed &= test_alarm_loop()
+    except Exception as e:
+        print(f"Alarm loop test failed: {e}")
+        all_passed = False
+
+    print("\n" + "=" * 70)
+    if all_passed:
+        print("✓ All automated tests passed!")
+    else:
+        print("✗ Some tests failed!")
+
+    print("\nWould you like to run interactive tests? (y/n)")
+    choice = input().strip().lower()
+
+    if choice == 'y':
+        interactive_test()
+
+    print("\nTest session completed!")
+
+if __name__ == "__main__":
+    main()
+
+
+def test_alarm_loop():
+    """Test if alarm_loop keeps beeping while in alarm range"""
+    print("\nTesting alarm loop (continuous beep in alarm range)...")
+    beep = SpeakerBeep()
+    # Simulate distance always in alarm range (<50cm)
+    distances = [25] * 5  # 5 cycles, always 25cm
+    idx = 0
+    def get_distance():
+        nonlocal idx
+        if idx < len(distances):
+            d = distances[idx]
+            idx += 1
+            return d
+        else:
+            return 100  # Out of alarm range, should stop
+    beep.alarm_loop(get_distance)
+    print("✓ Alarm loop exited after leaving alarm range.")
+    return True
     
     print("\n" + "=" * 70)
     if all_passed:
