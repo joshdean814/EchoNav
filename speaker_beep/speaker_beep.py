@@ -10,6 +10,22 @@ import time
 
 SAMP_RATE = 44100          
 FREQ = 1250.0
+# How long to actually play the sinewave for each beep (seconds)
+BEEP_PLAY_DURATION = 0.1
+
+# Distance thresholds (in cm). Using named constants makes the mapping
+# from distance -> beep interval easier to read and change.
+CRITICAL_DISTANCE_CM = 10    # very close
+WARNING_DISTANCE_CM = 30     # close
+DANGER_DISTANCE_CM = 50      # alarm range upper bound
+
+# Corresponding beep intervals (seconds) for the above ranges.
+INTERVAL_CRITICAL = 0.5
+INTERVAL_WARNING = 1.5
+INTERVAL_DANGER = 3.0
+
+# When outside alarm ranges, use this safe sleep interval between checks.
+SAFE_SLEEP_INTERVAL = 1.0
 
 class SpeakerBeep():
     def __init__(self) -> None:
@@ -33,13 +49,16 @@ class SpeakerBeep():
             self._curr_duration = None
             return
       
-        if self._closest_dist < 10:      
-            self._curr_duration = 0.5    
-        elif self._closest_dist < 30:    
-            self._curr_duration = 1.5
-        elif self._closest_dist < 50:    
-            self._curr_duration = 3.0
-        else:                            
+        # Map the closest distance to a readable, named interval.
+        # Note: comparisons are exclusive of the lower bound (i.e. < CRITICAL_DISTANCE behaves as "very close").
+        if self._closest_dist < CRITICAL_DISTANCE_CM:
+            self._curr_duration = INTERVAL_CRITICAL
+        elif self._closest_dist < WARNING_DISTANCE_CM:
+            self._curr_duration = INTERVAL_WARNING
+        elif self._closest_dist < DANGER_DISTANCE_CM:
+            self._curr_duration = INTERVAL_DANGER
+        else:
+            # None indicates "no beeping" / safe distance
             self._curr_duration = None
 
     def play_beep(self) -> None:
@@ -47,8 +66,8 @@ class SpeakerBeep():
             return
 
         try:
-            beep_duration = 0.1
-            t = np.linspace(0, beep_duration, int(SAMP_RATE * beep_duration), endpoint=False)
+            # Only play a short tone regardless of the interval between beeps.
+            t = np.linspace(0, BEEP_PLAY_DURATION, int(SAMP_RATE * BEEP_PLAY_DURATION), endpoint=False)
             wave = 0.5 * np.sin(2 * np.pi * FREQ * t)
             
             sd.play(wave, SAMP_RATE)
@@ -68,10 +87,11 @@ class SpeakerBeep():
         Continuously beep while in alarm range.
         get_distance_func: a function that returns current distance (float or None)
         """
-        print("Entering alarm loop. Will beep until out of alarm range (>50cm).")
+        print(f"Entering alarm loop. Will beep while distance < {DANGER_DISTANCE_CM}cm.")
         while True:
             dist = get_distance_func()
-            if dist is None or dist > 50:
+            # If no reading or we're outside the alarm region, stop.
+            if dist is None or dist >= DANGER_DISTANCE_CM:
                 print("Out of alarm range. Exiting alarm loop.")
                 self._stop_beep()
                 break
@@ -79,6 +99,8 @@ class SpeakerBeep():
             self._update_duration()
             if self._curr_duration:
                 self.play_beep()
+                # Wait the configured interval between beeps.
                 time.sleep(self._curr_duration)
             else:
-                time.sleep(1.0)
+                # No beeps in safe range: wait a short, constant amount before re-checking.
+                time.sleep(SAFE_SLEEP_INTERVAL)
