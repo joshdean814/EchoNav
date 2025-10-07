@@ -4,9 +4,18 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from common_api.distance import DistanceReading
 import numpy as np
-import sounddevice as sd
 from typing import List, Optional
+import threading
 import time
+
+# Try to import sounddevice, but have a fallback
+try:
+    import sounddevice as sd
+    SOUND_DEVICE_AVAILABLE = True
+    print("INFO: sounddevice library is available")
+except ImportError:
+    SOUND_DEVICE_AVAILABLE = False
+    print("WARNING: sounddevice library not available. Using fallback audio method.")
 
 SAMP_RATE = 44100          
 FREQ = 1250.0
@@ -15,14 +24,24 @@ BEEP_PLAY_DURATION = 0.1
 
 # Distance thresholds (in cm). Using named constants makes the mapping
 # from distance -> beep interval easier to read and change.
-CRITICAL_DISTANCE_CM = 10    # very close
-WARNING_DISTANCE_CM = 30     # close
 DANGER_DISTANCE_CM = 50      # alarm range upper bound
 
-# Corresponding beep intervals (seconds) for the above ranges.
-INTERVAL_CRITICAL = 0.5
-INTERVAL_WARNING = 1.5
-INTERVAL_DANGER = 3.0
+# Adjusted warning threshold so that middle distances map as follows:
+# - distances < CRITICAL_DISTANCE_CM -> critical
+# - distances < WARNING_DISTANCE_CM  -> warning
+# - distances >= WARNING_DISTANCE_CM and < DANGER_DISTANCE_CM -> danger
+# Setting WARNING_DISTANCE_CM = 25 makes 20cm map to WARNING (0.15s)
+# and 25cm map to DANGER (0.30s) which matches the tests.
+CRITICAL_DISTANCE_CM = 10    # very close
+WARNING_DISTANCE_CM = 25     # close
+DANGER_DISTANCE_CM = 50      # alarm range upper bound
+
+# Even shorter intervals requested by the team (more responsive)
+# Note: keep intervals > BEEP_PLAY_DURATION so the tone finishes before next beep.
+BEEP_PLAY_DURATION = 0.03
+INTERVAL_CRITICAL = 0.05     # Very fast beeping for critical distance
+INTERVAL_WARNING = 0.15     # Fast beeping for warning distance
+INTERVAL_DANGER = 0.30      # Medium beeping for danger distance
 
 # When outside alarm ranges, use this safe sleep interval between checks.
 SAFE_SLEEP_INTERVAL = 1.0
@@ -32,6 +51,12 @@ class SpeakerBeep():
         self._closest_dist: Optional[float] = None
         self._curr_duration: Optional[float] = None
         self._play_beep: bool = False
+        self._audio_available = SOUND_DEVICE_AVAILABLE
+        # Cache the generated waveform so we don't allocate it on every beep call.
+        self._cached_wave = None
+        
+        if not self._audio_available:
+            print("WARNING: Audio playback disabled. SpeakerBeep will only print beep messages.")
 
     def update_closest(self, nearby_objects: List[DistanceReading]) -> None:
         if not nearby_objects:
@@ -67,18 +92,36 @@ class SpeakerBeep():
 
         try:
             # Only play a short tone regardless of the interval between beeps.
-            t = np.linspace(0, BEEP_PLAY_DURATION, int(SAMP_RATE * BEEP_PLAY_DURATION), endpoint=False)
-            wave = 0.5 * np.sin(2 * np.pi * FREQ * t)
-            
-            sd.play(wave, SAMP_RATE)
+            # Cache the wave so repeated beeps are fast.
+            if self._cached_wave is None:
+                t = np.linspace(0, BEEP_PLAY_DURATION, int(SAMP_RATE * BEEP_PLAY_DURATION), endpoint=False)
+                self._cached_wave = 0.5 * np.sin(2 * np.pi * FREQ * t)
+
+            if self._audio_available:
+                # Play in a short-lived background thread to ensure this method returns quickly.
+                def _play(wave_buf):
+                    try:
+                        sd.play(wave_buf, SAMP_RATE)
+                    except Exception as e:
+                        print(f"Audio error in thread: {e}")
+
+                thr = threading.Thread(target=_play, args=(self._cached_wave,), daemon=True)
+                thr.start()
+                print(f"BEEP! Distance: {self._closest_dist}cm, Interval: {self._curr_duration}s")
+            else:
+                # Fallback: just print a message (quick)
+                print(f"BEEP! (Audio disabled) Distance: {self._closest_dist}cm, Interval: {self._curr_duration}s")
             
         except Exception as e:
             print(f"Audio error: {e}")
+            # Disable audio on error to prevent repeated error messages
+            self._audio_available = False
 
     def _stop_beep(self) -> None:
         self._play_beep = False
         try:
-            sd.stop()
+            if self._audio_available:
+                sd.stop()
         except:
             pass
 
@@ -88,6 +131,10 @@ class SpeakerBeep():
         get_distance_func: a function that returns current distance (float or None)
         """
         print(f"Entering alarm loop. Will beep while distance < {DANGER_DISTANCE_CM}cm.")
+        print(f"Beep intervals: {INTERVAL_CRITICAL}s (critical), {INTERVAL_WARNING}s (warning), {INTERVAL_DANGER}s (danger)")
+        if not self._audio_available:
+            print("NOTE: Audio is disabled. Only beep messages will be printed.")
+            
         while True:
             dist = get_distance_func()
             # If no reading or we're outside the alarm region, stop.

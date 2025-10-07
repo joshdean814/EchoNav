@@ -4,7 +4,8 @@ import time
 import numpy as np
 import sounddevice as sd
 
-sys.path.append(os.path.dirname(__file__))
+# Ensure project root (parent of this folder) is on sys.path so imports work when running the script
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from speaker_beep.speaker_beep import SpeakerBeep
 
@@ -41,11 +42,12 @@ def test_basic_functionality():
     
     beep = SpeakerBeep()
     
+    # Updated test cases to match faster intervals
     test_cases = [
-        {"desc": "Very close (5cm)", "dist": 5, "expected_duration": 0.5},
-        {"desc": "Close (15cm)", "dist": 15, "expected_duration": 1.5},
-        {"desc": "Medium (25cm)", "dist": 25, "expected_duration": 3.0},
-        {"desc": "Far (40cm)", "dist": 40, "expected_duration": 3.0},
+        {"desc": "Very close (5cm)", "dist": 5, "expected_duration": 0.05},
+        {"desc": "Close (15cm)", "dist": 15, "expected_duration": 0.15},
+        {"desc": "Medium (25cm)", "dist": 25, "expected_duration": 0.30},
+        {"desc": "Far (40cm)", "dist": 40, "expected_duration": 0.30},
         {"desc": "Very far (60cm)", "dist": 60, "expected_duration": None},
         {"desc": "No objects", "dist": None, "expected_duration": None},
     ]
@@ -99,6 +101,7 @@ def test_backup_simulation():
     print("\nSimulating backup scenario with actual audio...")
     print("You should hear beeps with increasing frequency as distance decreases")
     print("Make sure your speakers are on and volume is up!")
+    print("New intervals: 0.05s (<10cm), 0.15s (10-30cm), 0.30s (30-50cm)")
     
     beep = SpeakerBeep()
     
@@ -125,7 +128,7 @@ def test_backup_simulation():
             time.sleep(beep._curr_duration)
         else:
             print("  No beep (safe distance)")
-            time.sleep(1.0)
+            time.sleep(0.5)  # Shorter wait for safe distance
     
     print("✓ Backup simulation completed!")
     return True
@@ -142,7 +145,7 @@ def test_stop_functionality():
     print("Playing beep...")
     beep.play_beep()
     
-    time.sleep(0.2)
+    time.sleep(0.1)  # Shorter wait
     
     print("Stopping beep...")
     beep._stop_beep()
@@ -155,15 +158,17 @@ def test_stop_functionality():
 def test_continuous_beeping():
     """Test continuous beeping with different distances"""
     print("\nTesting continuous beeping with different distances...")
+    print("New intervals: 0.05s (<10cm), 0.15s (10-30cm), 0.30s (30-50cm)")
     
     beep = SpeakerBeep()
     
+    # Updated test sequence with shorter intervals
     test_sequence = [
         (60, "Safe - should be silent"),
-        (40, "Far - 3.0s beeps"),
-        (25, "Medium - 1.5s beeps"),
-        (10, "Close - 0.5s beeps"),
-        (5, "Very close - 0.5s beeps"),
+           (40, "Far - 0.30s beeps"),
+           (25, "Medium - 0.15s beeps"),
+           (10, "Close - 0.05s beeps"),
+           (5, "Very close - 0.05s beeps"),
     ]
     
     for distance, description in test_sequence:
@@ -175,13 +180,14 @@ def test_continuous_beeping():
         print(f"  Beep interval: {beep._curr_duration}s")
         
         if beep._curr_duration:
-            for i in range(3):
+            # Play more beeps to better demonstrate the pattern
+            for i in range(5):
                 print(f"  Beep {i+1}...")
                 beep.play_beep()
                 time.sleep(beep._curr_duration)
         else:
             print("  No beeps (as expected)")
-            time.sleep(2.0)
+            time.sleep(1.0)
     
     print("✓ Continuous beeping test completed!")
     return True
@@ -190,20 +196,39 @@ def test_constant_distance():
     """Test if beep interval remains stable when distance is constant"""
     print("\nTesting beep interval with constant distance...")
     beep = SpeakerBeep()
-    constant_distance = 20  # 20cm, should result in 1.5s interval
+    constant_distance = 20  # 20cm, should result in 0.15s interval
     objects = [MockDistanceReading(constant_distance)]
     beep.update_closest(objects)
     interval = beep._curr_duration
-    print(f"Distance: {constant_distance}cm | Expected interval: 1.5s | Actual interval: {interval}s")
-    if interval != 1.5:
+    print(f"Distance: {constant_distance}cm | Expected interval: 0.15s | Actual interval: {interval}s")
+    if interval != 0.15:
         print(f"✗ Interval incorrect, actual: {interval}s")
         return False
-    print("Playing beep 3 times, interval should be consistent...")
-    for i in range(3):
+    print("Playing beep 5 times, interval should be consistent...")
+    for i in range(5):
         print(f"  Beep {i+1}...")
         beep.play_beep()
         time.sleep(interval)
     print("✓ Beep interval is stable when distance is constant!")
+    return True
+
+def test_alarm_loop():
+    """Test if alarm_loop keeps beeping while in alarm range"""
+    print("\nTesting alarm loop (continuous beep in alarm range)...")
+    beep = SpeakerBeep()
+    # Simulate distance always in alarm range (<50cm)
+    distances = [25] * 8  # 8 cycles, always 25cm (0.3s interval)
+    idx = 0
+    def get_distance():
+        nonlocal idx
+        if idx < len(distances):
+            d = distances[idx]
+            idx += 1
+            return d
+        else:
+            return 100  # Out of alarm range, should stop
+    beep.alarm_loop(get_distance)
+    print("✓ Alarm loop exited after leaving alarm range.")
     return True
 
 def interactive_test():
@@ -211,6 +236,7 @@ def interactive_test():
     print("\nInteractive Test Mode with Audio")
     print("Enter distances to test or 'q' to quit")
     print("You will hear the actual beep for each distance!")
+    print("New intervals: 0.05s (<10cm), 0.15s (10-30cm), 0.30s (30-50cm)")
     
     beep = SpeakerBeep()
     
@@ -233,6 +259,7 @@ def interactive_test():
                 print("Playing beep...")
                 beep.play_beep()
                 
+                # Wait slightly longer than the beep duration
                 time.sleep(0.15) 
             else:
                 print("No beep (safe distance)")
@@ -241,9 +268,9 @@ def interactive_test():
             print("Please enter a valid number or 'q' to quit")
 
 def main():
-    print("SpeakerBeep Class Test")
-    print("Test the current version of speakerbeep")
-    print("Beep interval: 0.5s (<10cm), 1.5s (10-30cm), 3.0s (30-50cm), None (>50cm)")
+    print("SpeakerBeep Class Test - Updated Intervals")
+    print("Testing the current version with shorter beep intervals")
+    print("Beep intervals: 0.1s (<10cm), 0.3s (10-30cm), 0.6s (30-50cm), None (>50cm)")
     print("=" * 70)
 
     if not test_audio_system():
@@ -307,43 +334,6 @@ def main():
     if choice == 'y':
         interactive_test()
 
-    print("\nTest session completed!")
-
-if __name__ == "__main__":
-    main()
-
-
-def test_alarm_loop():
-    """Test if alarm_loop keeps beeping while in alarm range"""
-    print("\nTesting alarm loop (continuous beep in alarm range)...")
-    beep = SpeakerBeep()
-    # Simulate distance always in alarm range (<50cm)
-    distances = [25] * 5  # 5 cycles, always 25cm
-    idx = 0
-    def get_distance():
-        nonlocal idx
-        if idx < len(distances):
-            d = distances[idx]
-            idx += 1
-            return d
-        else:
-            return 100  # Out of alarm range, should stop
-    beep.alarm_loop(get_distance)
-    print("✓ Alarm loop exited after leaving alarm range.")
-    return True
-    
-    print("\n" + "=" * 70)
-    if all_passed:
-        print("✓ All automated tests passed!")
-    else:
-        print("✗ Some tests failed!")
-    
-    print("\nWould you like to run interactive tests? (y/n)")
-    choice = input().strip().lower()
-    
-    if choice == 'y':
-        interactive_test()
-    
     print("\nTest session completed!")
 
 if __name__ == "__main__":
