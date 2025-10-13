@@ -1,14 +1,19 @@
-# Angle Visual
-This module is responsible for displaying the current steering vector.
+from sense_hat import SenseHat
+sense = SenseHat()
 
-**Author:** Anju Damodaran <br>
-**Last Modified:** 10/01/2025
+red = (255, 0, 0)
+black = (0, 0, 0)
 
-## Overview
-The code attempts to read `AngleReading` objects and map valid angles to a vector displayed on the RaspberryPi's 8x8 LED interface. It expects an input angle in the range of [-10°, 10], where 0° is centered, -10° is all the way left, and 10° is all the way right.
+# Define a down arrow (8x8)
+arrow = [
+    black, black, black, red,   red,   black, black, black,
+    black, black, black, red,   red,   black, black, black,
+    black, black, black, red,   red,   black, black, black,
+    black, black, black, red,   red,   black, black, black,
+    red,   black, black, red,   red,   black, black, red,
+    black, red,   black, red,   red,   black, red,   black,
+    black, black, red,   red,   red,   red,   black, black,
+    black, black, black, red,   red,   black, black, black
+]
 
-### Strategy
-The code implements the following functions:
-- `check_angle` -> Validates provided `AngleReading` & passes it forwards.
-- `get_coords_from_angle` -> uses the angle to create a 2D, 8x8 numpy array containing the current pixel data.
-- `draw_grid` -> Uses glowbit to activate the Pi LED grid using coordinate information.
+sense.set_pixels(arrow)
