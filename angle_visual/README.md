@@ -45,13 +45,13 @@ sense.set_pixels(arrow)
 tyre_angle = 10  # Change to -10, 0, or 10 for testing
 
 # Display arrows based on tyre angle
-if tyre_angle == -10:
+if tyre_angle (-10<0):
     sense.set_pixels(up_left_arrow)
     print("Tyre angle is -10° — displaying UP-LEFT arrow.")
 elif tyre_angle == 0:
     sense.set_pixels(down_arrow)
     print("Tyre angle is 0° — displaying DOWN arrow.")
-elif tyre_angle == 10:
+elif tyre_angle (10>0):
     sense.set_pixels(up_right_arrow)
     print("Tyre angle is 10° — displaying UP-RIGHT arrow.")
 else:
