@@ -1,30 +1,20 @@
-import mpu6050
-import time
+import smbus, time, struct
 
-# Create a new Mpu6050 object
-mpu6050 = mpu6050.mpu6050(0x68)
+bus = smbus.SMBus(1)
+addr = 0x68
 
-# Define a function to read the sensor data
-def read_sensor_data():
-    # Read the accelerometer values
-    # accelerometer_data = mpu6050.get_accel_data()
+# wake device
+bus.write_byte_data(addr, 0x6B, 0)
+time.sleep(0.1)
 
-    # Read the gyroscope values
-    gyroscope_data = mpu6050.get_gyro_data()
+def read_word(reg):
+    hi, lo = bus.read_i2c_block_data(addr, reg, 2)
+    val = (hi << 8) | lo
+    return val - 65536 if val & 0x8000 else val
 
-    # Read temp
-    # temperature = mpu6050.get_temp()
-
-    return gyroscope_data
-
-# Start a while loop to continuously read the sensor data
 while True:
-
-    # Read the sensor data
-    gyroscope_data = read_sensor_data()
-
-    # Print the sensor data
-    print("Gyroscope data:", gyroscope_data)
-
-    # Wait for 1 second
-    time.sleep(1)
+    gx = read_word(0x43)
+    gy = read_word(0x45)
+    gz = read_word(0x47)
+    print("Gyro:", gx, gy, gz)
+    time.sleep(0.5)
