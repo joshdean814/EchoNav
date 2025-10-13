@@ -15,5 +15,16 @@ arrow = [
     black, black, red,   red,   red,   red,   black, black,
     black, black, black, red,   red,   black, black, black
 ]
+# Define a diagonal up arrow arrow (8x8)
+arrow = [
+    black, black, black, black, red, red, red, red,
+    black, black, black, black, black, black, red, red,
+    black, black, black, black, black, red, black, red,
+    black, black, black, black, red, black, black, red,
+    black, black, black, red, black, black, black, black,
+    black, black, red, black, black, black, black, black,
+    black, red, black, black, black, black, black, black,
+    red, black, black, black, black, black, black, black
+]
 
 sense.set_pixels(arrow)
