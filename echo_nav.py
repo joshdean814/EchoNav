@@ -2,6 +2,10 @@ from time import sleep
 from speaker_beep import SpeakerBeep
 from ultrasonic_capture import UltrasonicCapture
 
+"""
+[DEBUG] Readings: [DistanceReading(corner=<CarCorner.BACK_LEFT: 0>, distance=206.69666666666666), DistanceReading(corner=<CarCorner.BACK_RIGHT: 1>, distance=21.366666666666667)]
+"""
+
 class EchoNav():
     def __init__(self):
         self._debug = True
