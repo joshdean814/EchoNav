@@ -35,10 +35,14 @@ class EchoNav():
 def main():
     echo_nav = EchoNav()
     sense = SenseHat()
+    
+    print("Press the joystick to toggle the program!")
     try:
         while True:
             for event in sense.stick.get_events():
                 if event.action == "pressed" and event.direction == "middle":
+                    echo_nav.active = not echo_nav.active
+                    print(f"Sensing is currently turned: {'on' if echo_nav.active else 'off'}")
                     if echo_nav.active:
                         echo_nav.start()
                     else:
