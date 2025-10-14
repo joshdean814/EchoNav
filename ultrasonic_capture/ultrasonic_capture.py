@@ -45,13 +45,18 @@ class UltrasonicSensor():
         if debug:
             print("[DEBUG] Attempting a dry-fire")
             
-        distance = self._read_one_distance()
+        try:
+            test_distance = self._read_one_distance()
+        except Exception as e:
+            print(f"Critical error while testing sensor: {self._corner.print_name}!")
+            print(f"Error: {e}")
+            exit(-1)
         
         if debug:
-            print(f"[DEBUG] Test reading result: {distance}")
+            print(f"[DEBUG] Test reading result: {test_distance}")
             print(f"[DEBUG] Sensor: {self._corner.print_name} setup!")
         
-    def _read_one_distance(self) -> float:
+    def _read_one_distance(self) -> Optional[float]:
         # Sleep 50 ms to prevent cross-talk collisions.
         time.sleep(0.05)
         
@@ -67,7 +72,9 @@ class UltrasonicSensor():
             pulse_start = time.time()
             
             if pulse_start >= timeout:
-                raise RuntimeError(f"Sensor: {self._corner.print_name} timed out during reading!")
+                if self._debug:
+                    print(f"Sensor: {self._corner.print_name} timed out during reading!")
+                return None
             
         timeout = time.time() + TIMEOUT_DUR
             
@@ -103,8 +110,6 @@ class UltrasonicSensor():
             self._read_one_distance()
             for _ in range(NUM_TRIALS)
         ]
-        
-        print(distances)
 
         stable, mean = self._is_stable(distances)
         dr = DistanceReading(self._corner, mean)
@@ -112,6 +117,10 @@ class UltrasonicSensor():
             dr.distance = None
 
         return dr
+        
+    @property
+    def name(self) -> str:
+        return self._corner.print_name
 
 class UltrasonicCapture():
     def __init__(self, debug: bool = True):
@@ -129,10 +138,19 @@ class UltrasonicCapture():
             print("[DEBUG] System setup, ready for readings!")
 
     def read_all(self) -> List[DistanceReading]:
-        return [
-            self._sensors[corner.value].read_distance()
-            for corner in CarCorner
-        ]
+        
+        readings: List[DistanceReading] = []
+        
+        for sensor in self._sensors:
+            try:
+                reading = sensor.read_distance()
+            except Exception as e:
+                print(f"Error while reading sensor: {sensor.name}!")
+                print(f"Error: {e}")
+                
+            readings.append(reading)
+            
+        return readings
 
     def shutdown(self) -> None:
         GPIO.cleanup()

@@ -27,6 +27,9 @@ BEEP_PLAY_DURATION = 0.05
 MAX_DIST = 50   # alarm range upper bound
 MIN_DIST = 2    # very close
 
+MIN_INTERVAL = 0.05
+MAX_INTERVAL = 0.5
+
 # Controls the shape of the exponential mapping. Values <1 make the curve rise
 # faster at shorter distances (more aggressive), values >1 make it slower.
 MAPPING_EXPONENT = 0.5
@@ -44,24 +47,18 @@ class SpeakerBeep():
         self._lock = Lock()
         
         # Cache the generated waveform so we don't need to recreate it on every beep call.
-        self._cached_wave = None
+        t = np.linspace(0, BEEP_PLAY_DURATION, int(SAMP_RATE * BEEP_PLAY_DURATION), endpoint=False)
+        self._cached_wave = 0.5 * np.sin(2 * np.pi * FREQ * t)
         
     def update_closest(self, nearby_objects: List[DistanceReading]) -> None:
         """Update with the closest valid distance reading, ignoring None readings."""
         if not nearby_objects:
-            with self._lock:
-                self._closest_dist = None
-                self._curr_duration = None
             return
         
         # Filter out None readings before finding the closest
         valid_objects = [obj for obj in nearby_objects if obj.distance is not None]
         
         if not valid_objects:
-            # All readings are None - treat as no objects
-            with self._lock:
-                self._closest_dist = None
-                self._curr_duration = None
             return
         
         # Find the closest valid object
@@ -70,15 +67,12 @@ class SpeakerBeep():
         self._update_duration()
 
     def _map_dist_to_duration(self, distance: float) -> Optional[float]:
-        if distance >= MAX_DIST:
-            return
-        
-        if distance <= MIN_DIST:
-            return 0.05
-        
+        # Normalize and clamp within [0, 1].
         norm = (distance - MIN_DIST) / (MAX_DIST - MIN_DIST)
-        duration = MIN_DIST + (MAX_DIST - MIN_DIST) * (norm ** MAPPING_EXPONENT)
-        return duration
+        norm = max(0.0, min(norm, 1.0))
+        
+        duration = MIN_INTERVAL + (MAX_INTERVAL - MIN_INTERVAL) * (norm ** MAPPING_EXPONENT)
+        return max(MIN_INTERVAL, min(MAX_INTERVAL, duration))
                 
     def _update_duration(self) -> None:
         """Update beep interval based on current distance, handling None values."""
@@ -94,7 +88,7 @@ class SpeakerBeep():
     def start(self):
         """Start the beeping loop once. Safe to call multiple times."""
         if self._thread and self._thread.is_alive():
-            return  # Already running
+            return
         self._play_flag.set()
         self._thread = Thread(target=self._beep_loop)
         self._thread.start()
@@ -110,14 +104,13 @@ class SpeakerBeep():
             # Busy wait if there is no current duration.
             if dur is None:
                 time.sleep(0.1)
+                
+                if self._debug:
+                    print(f"[DEBUG] Beeping (dist={dist}, dur={dur})")
                 continue
-
-            if self._cached_wave is None:
-                t = np.linspace(0, BEEP_PLAY_DURATION, int(SAMP_RATE * BEEP_PLAY_DURATION), endpoint=False)
-                self._cached_wave = 0.5 * np.sin(2 * np.pi * FREQ * t)
-
             try:
                 sd.play(self._cached_wave, SAMP_RATE)
+                sd.wait()
             except Exception as e:
                 if self._debug:
                     print(f"[DEBUG] Audio error: {e}")
@@ -140,5 +133,6 @@ class SpeakerBeep():
         try:
             if self._audio_available:
                 sd.stop()
-        except:
-            pass
+        except Exception as e:
+            if self._debug:
+                print(f"[DEBUG] Audio error: {e}")
