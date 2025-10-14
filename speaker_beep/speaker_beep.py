@@ -45,9 +45,6 @@ class SpeakerBeep():
         # Cache the generated waveform so we don't need to recreate it on every beep call.
         self._cached_wave = None
         
-        if not self._audio_available:
-            print("WARNING: Audio playback disabled. SpeakerBeep will only print beep messages.")
-
     def update_closest(self, nearby_objects: List[DistanceReading]) -> None:
         """Update with the closest valid distance reading, ignoring None readings."""
         if not nearby_objects:
@@ -67,11 +64,8 @@ class SpeakerBeep():
         # Find the closest valid object
         closest_object = min(valid_objects, key=lambda obj: obj.distance)
         self._closest_dist = closest_object.distance
-        prev_duration = self._curr_duration or 0.0
         if self._update_duration():
-            # Check if the new duration is close to the old one before changing.
-            if abs(prev_duration - self._curr_duration) > TOL:
-                self.play_beep()
+            self.play_beep()
 
     def _map_dist_to_duration(self, distance: float) -> Optional[float]:
         if distance >= MAX_DIST:
@@ -88,12 +82,14 @@ class SpeakerBeep():
         """Update beep interval based on current distance, handling None values."""
         if self._closest_dist is None:
             self._curr_duration = None
-            return
+            return False
        
         if duration := self._map_dist_to_duration(self._closest_dist):
-            self._curr_duration = duration
-
-        return self._curr_duration is not None
+            # Check if the new duration is close to the old one before changing.
+            if abs(duration - self._curr_duration) > TOL:
+                self._curr_duration = duration
+                return True
+        return False
 
     def stop_beep(self):
         if self._debug:

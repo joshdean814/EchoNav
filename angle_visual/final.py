@@ -112,7 +112,7 @@ def draw_grid(coords: NDArray) -> None:
 if __name__ == "__main__":
     # Example angle reading
 
-        display_arrow(10)
+        display_arrow(0)
         # Optional: also show grid version
         # draw_grid(get_coords_from_angle(angle))
 
