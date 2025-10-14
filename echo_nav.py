@@ -10,7 +10,7 @@ class EchoNav():
 
     def start(self) -> None:
         if self._debug:
-            print("Starting down EchoNav...")
+            print("Starting up EchoNav...")
         try:
             while True:
                 readings = self._ultrason_cap.read_all()
