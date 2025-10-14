@@ -12,6 +12,7 @@ import time
 try:
     import sounddevice as sd
     SOUND_DEVICE_AVAILABLE = True
+    sd.default.device = [-1, 1]
     print("INFO: sounddevice library is available")
 except ImportError:
     SOUND_DEVICE_AVAILABLE = False
@@ -41,7 +42,7 @@ INTERVAL_CRITICAL = 0.05     # Very fast beeping for critical distance
 INTERVAL_WARNING = 0.15     # Fast beeping for warning distance
 INTERVAL_DANGER = 0.30      # Medium beeping for danger distance
 
-MIN_DIST = 2
+MIN_DIST = 3
 MAX_DIST = 50
 
 # If True, use continuous exponential mapping between critical and danger
@@ -49,7 +50,7 @@ MAX_DIST = 50
 USE_CONTINUOUS_MAPPING = True
 # Controls the shape of the exponential mapping. Values <1 make the curve rise
 # faster at shorter distances (more aggressive), values >1 make it slower.
-MAPPING_EXPONENT = 0.25
+MAPPING_EXPONENT = 0.5
 
 class SpeakerBeep():
     def __init__(self) -> None:
@@ -89,8 +90,11 @@ class SpeakerBeep():
             self.play_beep()
 
     def _map_dist_to_duration(self, distance: float) -> Optional[float]:
-        if distance >= MAX_DIST or distance <= MIN_DIST:
-            return None
+        if distance >= MAX_DIST:
+            return
+        
+        if distance <= MIN_DIST:
+            return 0.05
         
         norm = (distance - MIN_DIST) / (MAX_DIST - MIN_DIST)
         duration = INTERVAL_CRITICAL + (INTERVAL_DANGER - INTERVAL_CRITICAL) * (norm ** MAPPING_EXPONENT)
