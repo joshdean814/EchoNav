@@ -1,11 +1,10 @@
 import RPi.GPIO as GPIO
 import time
+import statistics
 
-from typing import Optional, List
+from typing import Optional, List, Tuple
 
 from common_api.distance import CarCorner, DistanceReading
-
-PULSE_DUR = 0.0001 # 10 microsecond pulse.
 
 """ 
     We know the speed of sound is 373 m/s, so 37300 cm/s
@@ -13,7 +12,10 @@ PULSE_DUR = 0.0001 # 10 microsecond pulse.
     37300 / 2 = 17150
 """
 SOUND_SPEED = 17150
-TIMEOUT_DUR = 3 # 3 second timeout.
+PULSE_DUR = 0.0001  # 10 microsecond pulse.
+TIMEOUT_DUR = 3     # 3 second timeout.
+NUM_TRIALS = 3      # Times to try reading.
+MAX_DEV = 3.0       # Max deviation between readings (in cm).
 
 # Use the GPIO pin names, not physical pin locations.
 GPIO.setmode(GPIO.BCM)
@@ -43,13 +45,13 @@ class UltrasonicSensor():
         if debug:
             print("[DEBUG] Attempting a dry-fire")
             
-        reading = self.read_distance()
+        distance = self._read_one_distance()
         
         if debug:
-            print(f"[DEBUG] Test reading result: {reading.distance}")
+            print(f"[DEBUG] Test reading result: {distance}")
             print(f"[DEBUG] Sensor: {self._corner.print_name} setup!")
         
-    def read_distance(self) -> DistanceReading:
+    def _read_one_distance(self) -> float:
         # Send the trigger signal out for 10 ms.
         GPIO.output(self._trig_pin, True)
         time.sleep(PULSE_DUR)
@@ -77,11 +79,34 @@ class UltrasonicSensor():
         distance = pulse_duration * SOUND_SPEED
         distance = round(distance, 2)
         
-        return DistanceReading(
-            corner=self._corner,
-            distance=distance
-        )
+        return distance
+    
+    def _is_stable(readings: List[float]) -> Tuple[bool, Optional[float]]:
         
+        # Ensure all values are present, and positive, non-null.
+        cleaned = [r for r in readings if r is not None and r >= 0]
+        if len(cleaned) < 2:
+            return False, None
+        
+        mean = statistics.mean(cleaned)
+        deviations = [
+            abs(r - mean)
+            for r in cleaned
+        ]
+        return max(deviations) <= MAX_DEV, mean
+    
+    def read_distance(self) -> DistanceReading:
+        distances: List[float] = [
+            self._read_one_distance()
+            for _ in range(NUM_TRIALS)
+        ]
+
+        stable, mean = self._is_stable(distances)
+        dr = DistanceReading(self._corner, mean)
+        if not stable:
+            dr.distance = None
+
+        return dr
 
 class UltrasonicCapture():
     def __init__(self, debug: bool = True):
@@ -97,7 +122,8 @@ class UltrasonicCapture():
         
         if debug:
             print("[DEBUG] System setup, ready for readings!")
-        
+
+        self._sensors[CarCorner.BACK_LEFT].read_distance()
 
     def read_all(self) -> List[DistanceReading]:
         pass
