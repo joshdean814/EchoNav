@@ -37,6 +37,7 @@ class EchoNav():
     def _start(self):
         if self._running:
             return
+        self._speaker_beep.start()
         self._active_flag.set()
         self._thread = threading.Thread(target=self._control_loop)
         self._thread.start()
@@ -46,7 +47,7 @@ class EchoNav():
         if not self._running:
             return
         self._active_flag.clear()
-        self._speaker_beep.stop_beep()
+        self._speaker_beep.stop()
         
         if self._thread: 
             self._thread.join(timeout=1)

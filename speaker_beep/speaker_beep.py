@@ -27,8 +27,6 @@ BEEP_PLAY_DURATION = 0.05
 MAX_DIST = 50   # alarm range upper bound
 MIN_DIST = 2    # very close
 
-TOL = 0.1
-
 # Controls the shape of the exponential mapping. Values <1 make the curve rise
 # faster at shorter distances (more aggressive), values >1 make it slower.
 MAPPING_EXPONENT = 0.5
@@ -51,8 +49,9 @@ class SpeakerBeep():
     def update_closest(self, nearby_objects: List[DistanceReading]) -> None:
         """Update with the closest valid distance reading, ignoring None readings."""
         if not nearby_objects:
-            self._closest_dist = None
-            self.stop_beep()
+            with self._lock:
+                self._closest_dist = None
+                self._curr_duration = None
             return
         
         # Filter out None readings before finding the closest
@@ -60,15 +59,15 @@ class SpeakerBeep():
         
         if not valid_objects:
             # All readings are None - treat as no objects
-            self._closest_dist = None
-            self.stop_beep()
+            with self._lock:
+                self._closest_dist = None
+                self._curr_duration = None
             return
         
         # Find the closest valid object
         closest_object = min(valid_objects, key=lambda obj: obj.distance)
         self._closest_dist = closest_object.distance
-        if self._update_duration():
-            self.play_beep()
+        self._update_duration()
 
     def _map_dist_to_duration(self, distance: float) -> Optional[float]:
         if distance >= MAX_DIST:
@@ -81,50 +80,23 @@ class SpeakerBeep():
         duration = MIN_DIST + (MAX_DIST - MIN_DIST) * (norm ** MAPPING_EXPONENT)
         return duration
                 
-    def _update_duration(self) -> bool:
+    def _update_duration(self) -> None:
         """Update beep interval based on current distance, handling None values."""
-        with self._lock:
-            if self._closest_dist is None:
+        if self._closest_dist is None:
+            with self._lock:
                 self._curr_duration = None
-                return False
-        
-            if duration := self._map_dist_to_duration(self._closest_dist):
-                # Check if the new duration is close to the old one before changing.
-                if abs(duration - self._curr_duration) > TOL:
-                    self._curr_duration = duration
-                    return True
-            return False
-
-    def stop_beep(self):
-        if self._debug:
-            print("[DEBUG] Attempting to stop beeping...")
+            return
     
-        self._play_flag.clear()
-        try:
-            if self._audio_available:
-                sd.stop()
-        
-        except:
-            if self._debug:
-                print("[DEBUG] Failed to stop beeping!")
-        if self._debug:
-            print("[DEBUG] Clearing beep thread, cached wave...")
-        
-        if self._beep_thread:
-            self._beep_thread.join(timeout=1
-            )
-            
-        self._cached_wave = None
-        
-        if self._debug:
-            print("[DEBUG] Beeping stopped.")
+        duration = self._map_dist_to_duration(self._closest_dist)
+        with self._lock:
+            self._curr_duration = duration
 
     def start(self):
         """Start the beeping loop once. Safe to call multiple times."""
         if self._thread and self._thread.is_alive():
             return  # Already running
         self._play_flag.set()
-        self._thread = Thread(target=self._loop)
+        self._thread = Thread(target=self._beep_loop)
         self._thread.start()
 
     def _beep_loop(self):
@@ -153,6 +125,7 @@ class SpeakerBeep():
             if self._debug:
                 print(f"[DEBUG] Beeping (dist={dist:.1f}, dur={dur:.2f}s)")
             time.sleep(dur)
+        
         if self._debug:
             print("[DEBUG] Beep thread exited.")
 
@@ -169,25 +142,3 @@ class SpeakerBeep():
                 sd.stop()
         except:
             pass
-    # def play_beep(self):
-        
-    #     # Last sanity check before playing the beep.
-    #     if not self._curr_duration or self._curr_duration <= 0.0:
-    #         self.stop_beep()
-    #         return
-
-    #     self._play_flag.set()
-
-    #     def _loop():
-    #         while self._play_flag.is_set():
-    #             if self._audio_available:
-    #                 if self._cached_wave is None:
-    #                     t = np.linspace(0, BEEP_PLAY_DURATION, int(SAMP_RATE * BEEP_PLAY_DURATION), endpoint=False)
-    #                     self._cached_wave = 0.5 * np.sin(2 * np.pi * FREQ * t)
-    #                 sd.play(self._cached_wave, SAMP_RATE)
-    #             if self._debug:
-    #                 print(f"[DEBUG] Beep with distance: {self._closest_dist}cm, interval: {self._curr_duration}s")
-    #             time.sleep(self._curr_duration)
-
-    #     self._beep_thread = threading.Thread(target=_loop)
-    #     self._beep_thread.start()
