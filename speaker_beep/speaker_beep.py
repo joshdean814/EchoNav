@@ -45,15 +45,13 @@ INTERVAL_DANGER = 0.30      # Medium beeping for danger distance
 MIN_DIST = 3
 MAX_DIST = 50
 
-# If True, use continuous exponential mapping between critical and danger
-# instead of discrete buckets. This makes the interval grow smoothly with distance.
-USE_CONTINUOUS_MAPPING = True
 # Controls the shape of the exponential mapping. Values <1 make the curve rise
 # faster at shorter distances (more aggressive), values >1 make it slower.
 MAPPING_EXPONENT = 0.5
 
 class SpeakerBeep():
-    def __init__(self) -> None:
+    def __init__(self, debug: bool = False) -> None:
+        self._debug: bool = debug
         self._closest_dist: Optional[float] = None
         self._curr_duration: Optional[float] = None
         self._play_beep: bool = False
@@ -112,12 +110,21 @@ class SpeakerBeep():
         return self._curr_duration is not None
 
     def stop_beep(self):
+        if self._debug:
+            print("[DEBUG] Attempting to stop beeping...")
         self._stop_flag.set()
         try:
             if self._audio_available:
                 sd.stop()
+                
+                if self._debug:
+                    print("[DEBUG] Beeping stopped.")
         except:
-            pass
+            if self._debug:
+                print("[DEBUG] Failed to stop beeping!")
+                
+        if self._beep_thread and self._stop_flag:
+            self._stop_flag.set()
 
     def play_beep(self):
         if not self._curr_duration or self._curr_duration <= 0.0:
