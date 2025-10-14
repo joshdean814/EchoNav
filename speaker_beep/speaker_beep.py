@@ -60,7 +60,7 @@ class SpeakerBeep():
         """Update with the closest valid distance reading, ignoring None readings."""
         if not nearby_objects:
             self._closest_dist = None
-            self._stop_beep()
+            self.stop_beep()
             return
         
         # Filter out None readings before finding the closest
@@ -69,7 +69,7 @@ class SpeakerBeep():
         if not valid_objects:
             # All readings are None - treat as no objects
             self._closest_dist = None
-            self._stop_beep()
+            self.stop_beep()
             return
         
         # Find the closest valid object
@@ -127,7 +127,7 @@ class SpeakerBeep():
             # Disable audio on error to prevent repeated error messages
             self._audio_available = False
 
-    def _stop_beep(self) -> None:
+    def stop_beep(self) -> None:
         """Stop any ongoing audio playback."""
         self._play_beep = False
         try:
