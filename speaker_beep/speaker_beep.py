@@ -27,6 +27,8 @@ BEEP_PLAY_DURATION = 0.05
 MAX_DIST = 50   # alarm range upper bound
 MIN_DIST = 2    # very close
 
+TOL = 0.1
+
 # Controls the shape of the exponential mapping. Values <1 make the curve rise
 # faster at shorter distances (more aggressive), values >1 make it slower.
 MAPPING_EXPONENT = 0.5
@@ -65,8 +67,11 @@ class SpeakerBeep():
         # Find the closest valid object
         closest_object = min(valid_objects, key=lambda obj: obj.distance)
         self._closest_dist = closest_object.distance
+        prev_duration = self._curr_duration or 0.0
         if self._update_duration():
-            self.play_beep()
+            # Check if the new duration is close to the old one before changing.
+            if abs(prev_duration - self._curr_duration) > TOL:
+                self.play_beep()
 
     def _map_dist_to_duration(self, distance: float) -> Optional[float]:
         if distance >= MAX_DIST:
@@ -106,7 +111,8 @@ class SpeakerBeep():
             print("[DEBUG] Clearing beep thread, cached wave...")
         
         if self._beep_thread:
-            self._beep_thread.join()
+            self._beep_thread.join(timeout=1
+            )
             
         self._cached_wave = None
         

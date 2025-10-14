@@ -23,30 +23,36 @@ class EchoNav():
             if self._debug:
                 print(f"[DEBUG] Readings: {readings}")
             self._speaker_beep.update_closest(readings)
-            sleep(0.00001)
+            sleep(0.05)
         if self._debug:
             print("EchoNav loop exited")
             
     def toggle_program(self) -> None:
-        self._running = not self._running
         if self._running:
-            self._start()
-        else:
             self._stop()
             print("Press the joystick to restart the sensors...")
+        else:
+            self._start()
 
     def _start(self):
+        if self._running:
+            return
         self._active_flag.set()
         self._thread = threading.Thread(target=self._control_loop)
         self._thread.start()
+        self._running = True
 
     def _stop(self):
+        if not self._running:
+            return
         self._active_flag.clear()
         self._speaker_beep.stop_beep()
         
         if self._thread: 
-            self._thread.join()
+            self._thread.join(timeout=1)
             self._thread = None
+            
+        self._running = False
 
     def shutdown(self) -> None:
         if self._debug:
