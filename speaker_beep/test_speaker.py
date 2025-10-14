@@ -7,7 +7,7 @@ import sounddevice as sd
 # Ensure project root (parent of this folder) is on sys.path so imports work when running the script
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from speaker_beep.speaker_beep import SpeakerBeep
+from speaker_beep import SpeakerBeep
 
 class MockDistanceReading:
     def __init__(self, distance):

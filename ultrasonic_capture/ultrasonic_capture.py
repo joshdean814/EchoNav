@@ -52,6 +52,9 @@ class UltrasonicSensor():
             print(f"[DEBUG] Sensor: {self._corner.print_name} setup!")
         
     def _read_one_distance(self) -> float:
+        # Sleep 50 ms to prevent cross-talk collisions.
+        time.sleep(0.05)
+        
         # Send the trigger signal out for 10 ms.
         GPIO.output(self._trig_pin, True)
         time.sleep(PULSE_DUR)
@@ -81,7 +84,7 @@ class UltrasonicSensor():
         
         return distance
     
-    def _is_stable(readings: List[float]) -> Tuple[bool, Optional[float]]:
+    def _is_stable(self, readings: List[float]) -> Tuple[bool, Optional[float]]:
         
         # Ensure all values are present, and positive, non-null.
         cleaned = [r for r in readings if r is not None and r >= 0]
@@ -100,6 +103,8 @@ class UltrasonicSensor():
             self._read_one_distance()
             for _ in range(NUM_TRIALS)
         ]
+        
+        print(distances)
 
         stable, mean = self._is_stable(distances)
         dr = DistanceReading(self._corner, mean)
@@ -123,7 +128,11 @@ class UltrasonicCapture():
         if debug:
             print("[DEBUG] System setup, ready for readings!")
 
-        self._sensors[CarCorner.BACK_LEFT].read_distance()
-
     def read_all(self) -> List[DistanceReading]:
-        pass
+        return [
+            self._sensors[corner.value].read_distance()
+            for corner in CarCorner
+        ]
+
+    def shutdown(self) -> None:
+        GPIO.cleanup()

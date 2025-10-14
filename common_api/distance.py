@@ -1,11 +1,11 @@
 from enum import IntEnum
 from typing import Optional, Tuple
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 
 class CarCorner(IntEnum):
-    BACK_RIGHT = 0
-    BACK_LEFT = 1
+    BACK_LEFT = 0
+    BACK_RIGHT = 1
     #FRONT_LEFT = 2
     #FRONT_RIGHT = 3
     
@@ -17,7 +17,7 @@ class CarCorner(IntEnum):
     def pins(self) -> Tuple[int]:
         pin_map = {
             self.BACK_RIGHT : (17, 27),
-            self.BACK_LEFT : (23, 24)
+            self.BACK_LEFT : (16, 26)
         }
         return pin_map.get(self)
     
@@ -25,4 +25,3 @@ class CarCorner(IntEnum):
 class DistanceReading:
     corner: CarCorner
     distance: Optional[float]
-    timestamp: datetime = field(default_factory=datetime.now)

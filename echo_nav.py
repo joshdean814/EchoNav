@@ -4,13 +4,26 @@ from ultrasonic_capture import UltrasonicCapture
 
 class EchoNav():
     def __init__(self):
-        self._ultrason_cap = UltrasonicCapture()
+        self._debug = True
+        self._ultrason_cap = UltrasonicCapture(debug=self._debug)
         self._speaker_beep = SpeakerBeep()
 
     def start(self) -> None:
-        while True:
-            print("PING")
-            sleep(1)
+        if self._debug:
+            print("Starting down EchoNav...")
+        try:
+            while True:
+                readings = self._ultrason_cap.read_all()
+                if self._debug:
+                    print(f"[DEBUG] Readings: {readings}")
+                self._speaker_beep.update_closest(readings)
+                sleep(5)
+                
+        except KeyboardInterrupt:
+            if self._debug:
+                print("Shutting down EchoNav...")
+            self._ultrason_cap.shutdown()
+            exit(0)       
 
 def main():
     echo_nav = EchoNav()
