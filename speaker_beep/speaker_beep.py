@@ -41,6 +41,9 @@ INTERVAL_CRITICAL = 0.05     # Very fast beeping for critical distance
 INTERVAL_WARNING = 0.15     # Fast beeping for warning distance
 INTERVAL_DANGER = 0.30      # Medium beeping for danger distance
 
+MIN_DIST = 2
+MAX_DIST = 50
+
 # If True, use continuous exponential mapping between critical and danger
 # instead of discrete buckets. This makes the interval grow smoothly with distance.
 USE_CONTINUOUS_MAPPING = True
@@ -94,6 +97,13 @@ class SpeakerBeep():
         if play and self._curr_duration:
             self.play_beep()
 
+    def _map_dist_to_duration(self, distance: float) -> Optional[float]:
+        if distance >= MAX_DIST or distance <= MIN_DIST:
+            return None
+        
+        duration = 1 / (0.1 * (distance - 2))
+        return duration
+        
     def _update_duration(self):
         """Update beep interval based on current distance, handling None values."""
         if self._closest_dist is None:
@@ -103,19 +113,21 @@ class SpeakerBeep():
         # This maps distances in [CRITICAL_DISTANCE_CM, DANGER_DISTANCE_CM) to
         # intervals between INTERVAL_CRITICAL and INTERVAL_DANGER.
         if USE_CONTINUOUS_MAPPING:
-            if self._closest_dist < CRITICAL_DISTANCE_CM:
-                self._curr_duration = INTERVAL_CRITICAL
-            elif self._closest_dist >= DANGER_DISTANCE_CM:
-                self._curr_duration = None
-            else:
-                # normalized in [0,1] across the warning->danger span
-                norm = (self._closest_dist - CRITICAL_DISTANCE_CM) / max(1.0, (DANGER_DISTANCE_CM - CRITICAL_DISTANCE_CM))
-                # exponential interpolation with adjustable exponent to control
-                # how quickly the interval grows with distance.
-                # Apply exponent to norm to adjust curve steepness.
-                adj = norm ** MAPPING_EXPONENT
-                ratio = (INTERVAL_DANGER / INTERVAL_CRITICAL) ** adj
-                self._curr_duration = INTERVAL_CRITICAL * ratio
+            # if self._closest_dist < CRITICAL_DISTANCE_CM:
+            #     self._curr_duration = INTERVAL_CRITICAL
+            # elif self._closest_dist >= DANGER_DISTANCE_CM:
+            #     self._curr_duration = None
+            # else:
+            #     # normalized in [0,1] across the warning->danger span
+            #     norm = (self._closest_dist - CRITICAL_DISTANCE_CM) / max(1.0, (DANGER_DISTANCE_CM - CRITICAL_DISTANCE_CM))
+            #     # exponential interpolation with adjustable exponent to control
+            #     # how quickly the interval grows with distance.
+            #     # Apply exponent to norm to adjust curve steepness.
+            #     adj = norm ** MAPPING_EXPONENT
+            #     ratio = (INTERVAL_DANGER / INTERVAL_CRITICAL) ** adj
+            #     self._curr_duration = INTERVAL_CRITICAL * ratio
+            if duration := self._map_dist_to_duration(self._closest_dist):
+                self._curr_duration = duration
         else:
             # Map the closest distance to discrete buckets (legacy behavior)
             if self._closest_dist < CRITICAL_DISTANCE_CM:
