@@ -62,6 +62,9 @@ class SpeakerBeep():
         self._audio_available = SOUND_DEVICE_AVAILABLE
         # Cache the generated waveform so we don't allocate it on every beep call.
         self._cached_wave = None
+
+        self._beep_thread = None
+        self._stop_flag = threading.Event()
         
         if not self._audio_available:
             print("WARNING: Audio playback disabled. SpeakerBeep will only print beep messages.")
@@ -140,51 +143,41 @@ class SpeakerBeep():
                 # None indicates "no beeping" / safe distance
                 self._curr_duration = None
 
-    def play_beep(self) -> None:
-        """Play a beep if we have a valid distance and interval."""
-        if not self._curr_duration or self._curr_duration <= 0.0:
-            return
-
-        try:
-            # Only play a short tone regardless of the interval between beeps.
-            # Cache the wave so repeated beeps are fast.
-            if self._cached_wave is None:
-                t = np.linspace(0, BEEP_PLAY_DURATION, int(SAMP_RATE * BEEP_PLAY_DURATION), endpoint=False)
-                self._cached_wave = 0.5 * np.sin(2 * np.pi * FREQ * t)
-
-            if self._audio_available:
-                # Play in a short-lived background thread to ensure this method returns quickly.
-                def _play(wave_buf):
-                    try:
-                        sd.play(wave_buf, SAMP_RATE)
-                    except Exception as e:
-                        print(f"Audio error in thread: {e}")
-
-                thr = threading.Thread(target=_play, args=(self._cached_wave,), daemon=True)
-                thr.start()
-                print(f"BEEP! Distance: {self._closest_dist}cm, Interval: {self._curr_duration}s")
-            else:
-                # Fallback: just print a message (quick)
-                print(f"BEEP! (Audio disabled) Distance: {self._closest_dist}cm, Interval: {self._curr_duration}s")
-            
-        except Exception as e:
-            print(f"Audio error: {e}")
-            # Disable audio on error to prevent repeated error messages
-            self._audio_available = False
-
-    def stop_beep(self) -> None:
-        """Stop any ongoing audio playback."""
-        self._play_beep = False
+    def stop_beep(self):
+        self._stop_flag.set()
         try:
             if self._audio_available:
                 sd.stop()
         except:
             pass
 
-    # Backwards-compatible alias for older callers that expect `_stop_beep`.
-    def _stop_beep(self) -> None:
-        """Compatibility wrapper for older code that calls _stop_beep."""
-        return self.stop_beep()
+    def play_beep(self):
+        if not self._curr_duration or self._curr_duration <= 0.0:
+            self.stop_beep()
+            return
+
+        if self._beep_thread and self._beep_thread.is_alive():
+            # Already beeping; just update the interval for the next loop
+            return
+
+        self._stop_flag.clear()
+
+        def _loop():
+            while not self._stop_flag.is_set():
+                if self._audio_available:
+                    try:
+                        if self._cached_wave is None:
+                            t = np.linspace(0, BEEP_PLAY_DURATION, int(SAMP_RATE * BEEP_PLAY_DURATION), endpoint=False)
+                            self._cached_wave = 0.5 * np.sin(2 * np.pi * FREQ * t)
+                        sd.play(self._cached_wave, SAMP_RATE)
+                    except Exception as e:
+                        print(f"Audio error: {e}")
+                        self._audio_available = False
+                print(f"BEEP! Distance: {self._closest_dist}cm, Interval: {self._curr_duration}s")
+                time.sleep(self._curr_duration)
+
+        self._beep_thread = threading.Thread(target=_loop, daemon=True)
+        self._beep_thread.start()
 
     def alarm_loop(self, get_distance_func):
         """
@@ -212,7 +205,7 @@ class SpeakerBeep():
             # If we're outside the alarm region, stop.
             if dist >= DANGER_DISTANCE_CM:
                 print("Out of alarm range. Exiting alarm loop.")
-                self._stop_beep()
+                self.stop_beep()
                 break
                 
             self._closest_dist = dist
