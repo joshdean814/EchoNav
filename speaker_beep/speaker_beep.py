@@ -19,8 +19,6 @@ except ImportError:
 
 SAMP_RATE = 44100          
 FREQ = 1250.0
-# How long to actually play the sinewave for each beep (seconds)
-BEEP_PLAY_DURATION = 0.1
 
 # Distance thresholds (in cm). Using named constants makes the mapping
 # from distance -> beep interval easier to read and change.
@@ -59,17 +57,28 @@ class SpeakerBeep():
             print("WARNING: Audio playback disabled. SpeakerBeep will only print beep messages.")
 
     def update_closest(self, nearby_objects: List[DistanceReading]) -> None:
+        """Update with the closest valid distance reading, ignoring None readings."""
         if not nearby_objects:
             self._closest_dist = None
             self._stop_beep()
             return
         
-        closest_object = min(nearby_objects, key=lambda obj: obj.distance)
+        # Filter out None readings before finding the closest
+        valid_objects = [obj for obj in nearby_objects if obj.distance is not None]
+        
+        if not valid_objects:
+            # All readings are None - treat as no objects
+            self._closest_dist = None
+            self._stop_beep()
+            return
+        
+        # Find the closest valid object
+        closest_object = min(valid_objects, key=lambda obj: obj.distance)
         self._closest_dist = closest_object.distance
         self._update_duration()
-        
 
     def _update_duration(self):
+        """Update beep interval based on current distance, handling None values."""
         if self._closest_dist is None:
             self._curr_duration = None
             return
@@ -87,6 +96,7 @@ class SpeakerBeep():
             self._curr_duration = None
 
     def play_beep(self) -> None:
+        """Play a beep if we have a valid distance and interval."""
         if not self._curr_duration or self._curr_duration <= 0.0:
             return
 
@@ -118,6 +128,7 @@ class SpeakerBeep():
             self._audio_available = False
 
     def _stop_beep(self) -> None:
+        """Stop any ongoing audio playback."""
         self._play_beep = False
         try:
             if self._audio_available:
@@ -129,21 +140,34 @@ class SpeakerBeep():
         """
         Continuously beep while in alarm range.
         get_distance_func: a function that returns current distance (float or None)
+        Handles None readings by treating them as safe distance.
         """
         print(f"Entering alarm loop. Will beep while distance < {DANGER_DISTANCE_CM}cm.")
         print(f"Beep intervals: {INTERVAL_CRITICAL}s (critical), {INTERVAL_WARNING}s (warning), {INTERVAL_DANGER}s (danger)")
+        print("Note: None readings are treated as safe distance (no beeping)")
         if not self._audio_available:
             print("NOTE: Audio is disabled. Only beep messages will be printed.")
             
         while True:
             dist = get_distance_func()
-            # If no reading or we're outside the alarm region, stop.
-            if dist is None or dist >= DANGER_DISTANCE_CM:
+            
+            # Handle None reading - treat as safe distance (no beeping)
+            if dist is None:
+                print("Received None reading - treating as safe distance")
+                self._closest_dist = None
+                self._curr_duration = None
+                time.sleep(SAFE_SLEEP_INTERVAL)
+                continue
+                
+            # If we're outside the alarm region, stop.
+            if dist >= DANGER_DISTANCE_CM:
                 print("Out of alarm range. Exiting alarm loop.")
                 self._stop_beep()
                 break
+                
             self._closest_dist = dist
             self._update_duration()
+            
             if self._curr_duration:
                 self.play_beep()
                 # Wait the configured interval between beeps.
