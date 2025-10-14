@@ -51,9 +51,6 @@ USE_CONTINUOUS_MAPPING = True
 # faster at shorter distances (more aggressive), values >1 make it slower.
 MAPPING_EXPONENT = 0.25
 
-# When outside alarm ranges, use this safe sleep interval between checks.
-SAFE_SLEEP_INTERVAL = 1.0
-
 class SpeakerBeep():
     def __init__(self) -> None:
         self._closest_dist: Optional[float] = None
@@ -69,12 +66,8 @@ class SpeakerBeep():
         if not self._audio_available:
             print("WARNING: Audio playback disabled. SpeakerBeep will only print beep messages.")
 
-    def update_closest(self, nearby_objects: List[DistanceReading], play: bool = True) -> None:
-        """Update with the closest valid distance reading, ignoring None readings.
-
-        If `play` is True and a valid interval is determined, `play_beep()` will be
-        invoked immediately (non-blocking). Default is False to preserve existing behavior.
-        """
+    def update_closest(self, nearby_objects: List[DistanceReading]) -> None:
+        """Update with the closest valid distance reading, ignoring None readings."""
         if not nearby_objects:
             self._closest_dist = None
             self.stop_beep()
@@ -92,12 +85,7 @@ class SpeakerBeep():
         # Find the closest valid object
         closest_object = min(valid_objects, key=lambda obj: obj.distance)
         self._closest_dist = closest_object.distance
-        self._update_duration()
-
-        # Optionally trigger an immediate beep (non-blocking). This keeps
-        # existing callers unchanged (play=False) while allowing callers that
-        # expect immediate feedback to request it.
-        if play and self._curr_duration:
+        if self._update_duration():
             self.play_beep()
 
     def _map_dist_to_duration(self, distance: float) -> Optional[float]:
@@ -108,41 +96,16 @@ class SpeakerBeep():
         duration = INTERVAL_CRITICAL + (INTERVAL_DANGER - INTERVAL_CRITICAL) * (norm ** MAPPING_EXPONENT)
         return duration
         
-    def _update_duration(self):
+    def _update_duration(self) -> bool:
         """Update beep interval based on current distance, handling None values."""
         if self._closest_dist is None:
             self._curr_duration = None
             return
-        # Optionally use a continuous exponential mapping from distance to interval.
-        # This maps distances in [CRITICAL_DISTANCE_CM, DANGER_DISTANCE_CM) to
-        # intervals between INTERVAL_CRITICAL and INTERVAL_DANGER.
-        if USE_CONTINUOUS_MAPPING:
-            # if self._closest_dist < CRITICAL_DISTANCE_CM:
-            #     self._curr_duration = INTERVAL_CRITICAL
-            # elif self._closest_dist >= DANGER_DISTANCE_CM:
-            #     self._curr_duration = None
-            # else:
-            #     # normalized in [0,1] across the warning->danger span
-            #     norm = (self._closest_dist - CRITICAL_DISTANCE_CM) / max(1.0, (DANGER_DISTANCE_CM - CRITICAL_DISTANCE_CM))
-            #     # exponential interpolation with adjustable exponent to control
-            #     # how quickly the interval grows with distance.
-            #     # Apply exponent to norm to adjust curve steepness.
-            #     adj = norm ** MAPPING_EXPONENT
-            #     ratio = (INTERVAL_DANGER / INTERVAL_CRITICAL) ** adj
-            #     self._curr_duration = INTERVAL_CRITICAL * ratio
-            if duration := self._map_dist_to_duration(self._closest_dist):
-                self._curr_duration = duration
-        else:
-            # Map the closest distance to discrete buckets (legacy behavior)
-            if self._closest_dist < CRITICAL_DISTANCE_CM:
-                self._curr_duration = INTERVAL_CRITICAL
-            elif self._closest_dist < WARNING_DISTANCE_CM:
-                self._curr_duration = INTERVAL_WARNING
-            elif self._closest_dist < DANGER_DISTANCE_CM:
-                self._curr_duration = INTERVAL_DANGER
-            else:
-                # None indicates "no beeping" / safe distance
-                self._curr_duration = None
+       
+        if duration := self._map_dist_to_duration(self._closest_dist):
+            self._curr_duration = duration
+
+        return self._curr_duration is not None
 
     def stop_beep(self):
         self._stop_flag.set()
@@ -179,43 +142,3 @@ class SpeakerBeep():
 
         self._beep_thread = threading.Thread(target=_loop, daemon=True)
         self._beep_thread.start()
-
-    def alarm_loop(self, get_distance_func):
-        """
-        Continuously beep while in alarm range.
-        get_distance_func: a function that returns current distance (float or None)
-        Handles None readings by treating them as safe distance.
-        """
-        print(f"Entering alarm loop. Will beep while distance < {DANGER_DISTANCE_CM}cm.")
-        print(f"Beep intervals: {INTERVAL_CRITICAL}s (critical), {INTERVAL_WARNING}s (warning), {INTERVAL_DANGER}s (danger)")
-        print("Note: None readings are treated as safe distance (no beeping)")
-        if not self._audio_available:
-            print("NOTE: Audio is disabled. Only beep messages will be printed.")
-            
-        while True:
-            dist = get_distance_func()
-            
-            # Handle None reading - treat as safe distance (no beeping)
-            if dist is None:
-                print("Received None reading - treating as safe distance")
-                self._closest_dist = None
-                self._curr_duration = None
-                time.sleep(SAFE_SLEEP_INTERVAL)
-                continue
-                
-            # If we're outside the alarm region, stop.
-            if dist >= DANGER_DISTANCE_CM:
-                print("Out of alarm range. Exiting alarm loop.")
-                self.stop_beep()
-                break
-                
-            self._closest_dist = dist
-            self._update_duration()
-            
-            if self._curr_duration:
-                self.play_beep()
-                # Wait the configured interval between beeps.
-                time.sleep(self._curr_duration)
-            else:
-                # No beeps in safe range: wait a short, constant amount before re-checking.
-                time.sleep(SAFE_SLEEP_INTERVAL)
