@@ -63,6 +63,7 @@ def main():
         while True:
             for event in sense.stick.get_events():
                 if event.action == "pressed" and event.direction == "middle":
+                    print("here")
                     echo_nav.toggle_program()
     except KeyboardInterrupt:
         echo_nav.shutdown()
