@@ -1,14 +1,59 @@
-# Angle Visual
-This module is responsible for displaying the current steering vector.
+from sense_hat import SenseHat
+sense = SenseHat()
 
-**Author:** Anju Damodaran <br>
-**Last Modified:** 10/01/2025
+red = (255, 0, 0)
+black = (0, 0, 0)
 
-## Overview
-The code attempts to read `AngleReading` objects and map valid angles to a vector displayed on the RaspberryPi's 8x8 LED interface. It expects an input angle in the range of [-10°, 10], where 0° is centered, -10° is all the way left, and 10° is all the way right.
+# Define a down arrow (8x8)
+DOWN arrow = [
+    black, black, black, red,   red,   black, black, black,
+    black, black, black, red,   red,   black, black, black,
+    black, black, black, red,   red,   black, black, black,
+    black, black, black, red,   red,   black, black, black,
+    red,   black, black, red,   red,   black, black, red,
+    black, red,   black, red,   red,   black, red,   black,
+    black, black, red,   red,   red,   red,   black, black,
+    black, black, black, red,   red,   black, black, black
+]
+# Define a diagonal up arrow pointing right (8x8)
+UP-RIGHT arrow = [
+    black, black, black, black, red, red, red, red,
+    black, black, black, black, black, black, red, red,
+    black, black, black, black, black, red, black, red,
+    black, black, black, black, red, black, black, red,
+    black, black, black, red, black, black, black, black,
+    black, black, red, black, black, black, black, black,
+    black, red, black, black, black, black, black, black,
+    red, black, black, black, black, black, black, black
+]
+# define a diagonal up arrow pointing left
 
-### Strategy
-The code implements the following functions:
-- `check_angle` -> Validates provided `AngleReading` & passes it forwards.
-- `get_coords_from_angle` -> uses the angle to create a 2D, 8x8 numpy array containing the current pixel data.
-- `draw_grid` -> Uses glowbit to activate the Pi LED grid using coordinate information.
+UP-LEFT arrow = [
+    red, red, red, red, black, black, black, black, 
+    red, red, black, black, black, black, black, black,
+    red, black, red, black, black, black, black, black,
+    red, black, black, red, black, black, black, black,
+    black, black, black, black, red, black, black, black,
+    black, black, black, black, black, red, black, black,
+    black, black, black, black, black, black, red, black,
+    black, black, black, black, black, black, black, red
+]
+
+sense.set_pixels(arrow)  
+
+# Example tyre angle
+tyre_angle = 10  # Change to -10, 0, or 10 for testing
+
+# Display arrows based on tyre angle
+if tyre_angle (-10<0):
+    sense.set_pixels(up_left_arrow)
+    print("Tyre angle is -10° — displaying UP-LEFT arrow.")
+elif tyre_angle == 0:
+    sense.set_pixels(down_arrow)
+    print("Tyre angle is 0° — displaying DOWN arrow.")
+elif tyre_angle (10>0):
+    sense.set_pixels(up_right_arrow)
+    print("Tyre angle is 10° — displaying UP-RIGHT arrow.")
+else:
+    sense.clear()
+    print("Tyre angle outside defined range — LED matrix cleared.")
