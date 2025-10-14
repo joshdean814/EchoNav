@@ -111,11 +111,8 @@ def draw_grid(coords: NDArray) -> None:
 # Example usage
 if __name__ == "__main__":
     # Example angle reading
-    reading = AngleReading(valid=True, value=10)  # Change to -10, 0, 10
-    angle = check_angle(reading)
-    if angle is not None:
-        display_arrow(angle)
+
+        display_arrow(10)
         # Optional: also show grid version
         # draw_grid(get_coords_from_angle(angle))
-    else:
-        sense.clear()
+
