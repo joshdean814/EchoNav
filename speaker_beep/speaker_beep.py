@@ -56,8 +56,12 @@ class SpeakerBeep():
         if not self._audio_available:
             print("WARNING: Audio playback disabled. SpeakerBeep will only print beep messages.")
 
-    def update_closest(self, nearby_objects: List[DistanceReading]) -> None:
-        """Update with the closest valid distance reading, ignoring None readings."""
+    def update_closest(self, nearby_objects: List[DistanceReading], play: bool = True) -> None:
+        """Update with the closest valid distance reading, ignoring None readings.
+
+        If `play` is True and a valid interval is determined, `play_beep()` will be
+        invoked immediately (non-blocking). Default is False to preserve existing behavior.
+        """
         if not nearby_objects:
             self._closest_dist = None
             self.stop_beep()
@@ -76,6 +80,12 @@ class SpeakerBeep():
         closest_object = min(valid_objects, key=lambda obj: obj.distance)
         self._closest_dist = closest_object.distance
         self._update_duration()
+
+        # Optionally trigger an immediate beep (non-blocking). This keeps
+        # existing callers unchanged (play=False) while allowing callers that
+        # expect immediate feedback to request it.
+        if play and self._curr_duration:
+            self.play_beep()
 
     def _update_duration(self):
         """Update beep interval based on current distance, handling None values."""
@@ -135,6 +145,11 @@ class SpeakerBeep():
                 sd.stop()
         except:
             pass
+
+    # Backwards-compatible alias for older callers that expect `_stop_beep`.
+    def _stop_beep(self) -> None:
+        """Compatibility wrapper for older code that calls _stop_beep."""
+        return self.stop_beep()
 
     def alarm_loop(self, get_distance_func):
         """
