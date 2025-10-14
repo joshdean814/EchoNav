@@ -41,6 +41,13 @@ INTERVAL_CRITICAL = 0.05     # Very fast beeping for critical distance
 INTERVAL_WARNING = 0.15     # Fast beeping for warning distance
 INTERVAL_DANGER = 0.30      # Medium beeping for danger distance
 
+# If True, use continuous exponential mapping between critical and danger
+# instead of discrete buckets. This makes the interval grow smoothly with distance.
+USE_CONTINUOUS_MAPPING = True
+# Controls the shape of the exponential mapping. Values <1 make the curve rise
+# faster at shorter distances (more aggressive), values >1 make it slower.
+MAPPING_EXPONENT = 0.25
+
 # When outside alarm ranges, use this safe sleep interval between checks.
 SAFE_SLEEP_INTERVAL = 1.0
 
@@ -92,18 +99,34 @@ class SpeakerBeep():
         if self._closest_dist is None:
             self._curr_duration = None
             return
-      
-        # Map the closest distance to a readable, named interval.
-        # Note: comparisons are exclusive of the lower bound (i.e. < CRITICAL_DISTANCE behaves as "very close").
-        if self._closest_dist < CRITICAL_DISTANCE_CM:
-            self._curr_duration = INTERVAL_CRITICAL
-        elif self._closest_dist < WARNING_DISTANCE_CM:
-            self._curr_duration = INTERVAL_WARNING
-        elif self._closest_dist < DANGER_DISTANCE_CM:
-            self._curr_duration = INTERVAL_DANGER
+        # Optionally use a continuous exponential mapping from distance to interval.
+        # This maps distances in [CRITICAL_DISTANCE_CM, DANGER_DISTANCE_CM) to
+        # intervals between INTERVAL_CRITICAL and INTERVAL_DANGER.
+        if USE_CONTINUOUS_MAPPING:
+            if self._closest_dist < CRITICAL_DISTANCE_CM:
+                self._curr_duration = INTERVAL_CRITICAL
+            elif self._closest_dist >= DANGER_DISTANCE_CM:
+                self._curr_duration = None
+            else:
+                # normalized in [0,1] across the warning->danger span
+                norm = (self._closest_dist - CRITICAL_DISTANCE_CM) / max(1.0, (DANGER_DISTANCE_CM - CRITICAL_DISTANCE_CM))
+                # exponential interpolation with adjustable exponent to control
+                # how quickly the interval grows with distance.
+                # Apply exponent to norm to adjust curve steepness.
+                adj = norm ** MAPPING_EXPONENT
+                ratio = (INTERVAL_DANGER / INTERVAL_CRITICAL) ** adj
+                self._curr_duration = INTERVAL_CRITICAL * ratio
         else:
-            # None indicates "no beeping" / safe distance
-            self._curr_duration = None
+            # Map the closest distance to discrete buckets (legacy behavior)
+            if self._closest_dist < CRITICAL_DISTANCE_CM:
+                self._curr_duration = INTERVAL_CRITICAL
+            elif self._closest_dist < WARNING_DISTANCE_CM:
+                self._curr_duration = INTERVAL_WARNING
+            elif self._closest_dist < DANGER_DISTANCE_CM:
+                self._curr_duration = INTERVAL_DANGER
+            else:
+                # None indicates "no beeping" / safe distance
+                self._curr_duration = None
 
     def play_beep(self) -> None:
         """Play a beep if we have a valid distance and interval."""
