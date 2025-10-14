@@ -104,7 +104,8 @@ class SpeakerBeep():
         if distance >= MAX_DIST or distance <= MIN_DIST:
             return None
         
-        duration = 1 / (0.1 * (distance - 2))
+        norm = (distance - MIN_DIST) / (MAX_DIST - MIN_DIST)
+        duration = INTERVAL_CRITICAL + (INTERVAL_DANGER - INTERVAL_CRITICAL) * (norm ** MAPPING_EXPONENT)
         return duration
         
     def _update_duration(self):
