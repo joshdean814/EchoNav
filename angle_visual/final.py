@@ -2,10 +2,16 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from common_api.angle import AngleReading
+# from common_api.angle import AngleReading  # Comment out if module not found; use local definition below
+class AngleReading:
+    def __init__(self, value, valid=True):
+        self.value = value
+        self.valid = valid
+
 from sense_hat import SenseHat
 import numpy as np
 from numpy.typing import NDArray
+from time import sleep  # Added for simulation loop
 
 LED_DIM = 8
 
@@ -16,38 +22,38 @@ sense = SenseHat()
 red = (255, 0, 0)
 black = (0, 0, 0)
 
-# Arrow definitions (8x8)
+# Arrow definitions (8x8 flattened lists of 0s and 1s)
 DOWN_ARROW = [
-    black, black, black, red,   red,   black, black, black,
-    black, black, black, red,   red,   black, black, black,
-    black, black, black, red,   red,   black, black, black,
-    black, black, black, red,   red,   black, black, black,
-    red,   black, black, red,   red,   black, black, red,
-    black, red,   black, red,   red,   black, red,   black,
-    black, black, red,   red,   red,   red,   black, black,
-    black, black, black, red,   red,   black, black, black
+    0, 0, 0, 1, 1, 0, 0, 0,
+    0, 0, 0, 1, 1, 0, 0, 0,
+    0, 0, 0, 1, 1, 0, 0, 0,
+    0, 0, 0, 1, 1, 0, 0, 0,
+    1, 0, 0, 1, 1, 0, 0, 1,
+    0, 1, 0, 1, 1, 0, 1, 0,
+    0, 0, 1, 1, 1, 1, 0, 0,
+    0, 0, 0, 1, 1, 0, 0, 0
 ]
 
 UP_RIGHT_ARROW = [
-    black, black, black, black, red, red, red, red,
-    black, black, black, black, black, black, red, red,
-    black, black, black, black, black, red, black, red,
-    black, black, black, black, red, black, black, red,
-    black, black, black, red, black, black, black, black,
-    black, black, red, black, black, black, black, black,
-    black, red, black, black, black, black, black, black,
-    red, black, black, black, black, black, black, black
+    0, 0, 0, 0, 1, 1, 1, 1,
+    0, 0, 0, 0, 0, 0, 1, 1,
+    0, 0, 0, 0, 0, 1, 0, 1,
+    0, 0, 0, 0, 1, 0, 0, 1,
+    0, 0, 0, 1, 0, 0, 0, 0,
+    0, 0, 1, 0, 0, 0, 0, 0,
+    0, 1, 0, 0, 0, 0, 0, 0,
+    1, 0, 0, 0, 0, 0, 0, 0
 ]
 
 UP_LEFT_ARROW = [
-    red, red, red, red, black, black, black, black, 
-    red, red, black, black, black, black, black, black,
-    red, black, red, black, black, black, black, black,
-    red, black, black, red, black, black, black, black,
-    black, black, black, black, red, black, black, black,
-    black, black, black, black, black, red, black, black,
-    black, black, black, black, black, black, red, black,
-    black, black, black, black, black, black, black, red
+    1, 1, 1, 1, 0, 0, 0, 0,
+    1, 1, 0, 0, 0, 0, 0, 0,
+    1, 0, 1, 0, 0, 0, 0, 0,
+    1, 0, 0, 1, 0, 0, 0, 0,
+    0, 0, 0, 0, 1, 0, 0, 0,
+    0, 0, 0, 0, 0, 1, 0, 0,
+    0, 0, 0, 0, 0, 0, 1, 0,
+    0, 0, 0, 0, 0, 0, 0, 1
 ]
 
 def check_angle(reading: AngleReading) -> float | None:
@@ -66,19 +72,45 @@ def check_angle(reading: AngleReading) -> float | None:
         return reading.value
     return None
 
-def display_arrow(angle: float) -> None:
+def display_arrow(angle: float, arrow_pattern: list) -> None:
     """
-    Displays the correct arrow on the Sense HAT based on angle.
+    Displays the arrow pattern on the Sense HAT.
+
+    Args:
+        angle (float): Current steering angle in degrees (for selection).
+        arrow_pattern (list): Flattened 8x8 list of 0s and 1s for the arrow.
+    """
+    pixels = []
+    for cell in arrow_pattern:
+        pixels.append(red if cell == 1 else black)
+    sense.set_pixels(pixels)
+
+def display_arrow_from_angle(angle: float) -> None:
+    """
+    Selects and displays the correct arrow based on angle.
 
     Args:
         angle (float): Current steering angle in degrees.
     """
     if angle < 0:
-        sense.set_pixels(UP_LEFT_ARROW)
+        display_arrow(angle, UP_LEFT_ARROW)
     elif angle == 0:
-        sense.set_pixels(DOWN_ARROW)
+        display_arrow(angle, DOWN_ARROW)
     elif angle > 0:
-        sense.set_pixels(UP_RIGHT_ARROW)
+        display_arrow(angle, UP_RIGHT_ARROW)
+    else:
+        sense.clear()
+
+def display_arrow_from_reading(reading: AngleReading) -> None:
+    """
+    Validates and displays the arrow based on an AngleReading.
+
+    Args:
+        reading (AngleReading): The latest angle reading.
+    """
+    validated_angle = check_angle(reading)
+    if validated_angle is not None:
+        display_arrow_from_angle(validated_angle)
     else:
         sense.clear()
 
@@ -105,14 +137,27 @@ def draw_grid(coords: NDArray) -> None:
     pixels = []
     for row in coords:
         for cell in row:
-            pixels.append(red if cell else black)
+            pixels.append(red if cell == 1 else black)
     sense.set_pixels(pixels)
 
-# Example usage
+# Example usage / Driver simulation
 if __name__ == "__main__":
-    # Example angle reading
-
-        display_arrow(0)
+    # Test cases
+    test_angles = [-10, -5, 0, 5, 10, 15]  # 15 should be invalid (>10)
+    
+    for test_value in test_angles:
+        # Create simulated reading
+        reading = AngleReading(value=test_value, valid=True)
+        
+        # Use the integrated function
+        display_arrow_from_reading(reading)
+        
         # Optional: also show grid version
-        # draw_grid(get_coords_from_angle(angle))
-
+        validated_angle = check_angle(reading)
+        if validated_angle is not None:
+            draw_grid(get_coords_from_angle(validated_angle))
+        
+        sleep(2)  # Pause to see each display
+    
+    # Clear at end
+    sense.clear()
