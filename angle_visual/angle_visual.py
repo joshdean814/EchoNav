@@ -2,77 +2,75 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from common_api.angle import AngleReading
-import numpy as np
-from numpy.typing import NDArray
-import glowbit
+from common_api.angle import TurnState
+from sense_hat import SenseHat
+from typing import List
 
-LED_DIM = 8
+# Colors options.
+RED     = (255, 0, 0)
+BLACK   = (0, 0, 0)
 
-def check_angle(reading: AngleReading) -> None:
-    """
-    Validates an angle reading and passes it onwards.
+# Arrow definitions (8x8 flattened lists of 0s and 1s).
+DOWN_ARROW: List[bool] = [
+    0, 0, 0, 1, 1, 0, 0, 0,
+    0, 0, 1, 1, 1, 1, 0, 0,
+    0, 1, 0, 1, 1, 0, 1, 0,
+    0, 0, 0, 1, 1, 0, 0, 0,
+    1, 0, 0, 1, 1, 0, 0, 1,
+    0, 0, 0, 1, 1, 0, 0, 0,
+    0, 0, 0, 1, 1, 0, 0, 0,
+    0, 0, 0, 1, 1, 0, 0, 0
+]
 
-    NOTE: we currently consider an angle is valid if it's in the range [-10°, 10°].
+DOWN_RIGHT_ARROW: List[bool] = [
+    0, 0, 0, 0, 1, 1, 1, 1,
+    0, 0, 0, 0, 0, 0, 1, 1,
+    0, 0, 0, 0, 0, 1, 0, 1,
+    0, 0, 0, 0, 1, 0, 0, 1,
+    0, 0, 0, 1, 0, 0, 0, 0,
+    0, 0, 1, 0, 0, 0, 0, 0,
+    0, 1, 0, 0, 0, 0, 0, 0,
+    1, 0, 0, 0, 0, 0, 0, 0
+]
 
-    Args:
-        reading (AngleReading): the latest angle reading from the steering control.
-    """
-    if not reading.valid:
-        return
+DOWN_LEFT_ARROW: List[bool] = [
+    1, 1, 1, 1, 0, 0, 0, 0,
+    1, 1, 0, 0, 0, 0, 0, 0,
+    1, 0, 1, 0, 0, 0, 0, 0,
+    1, 0, 0, 1, 0, 0, 0, 0,
+    0, 0, 0, 0, 1, 0, 0, 0,
+    0, 0, 0, 0, 0, 1, 0, 0,
+    0, 0, 0, 0, 0, 0, 1, 0,
+    0, 0, 0, 0, 0, 0, 0, 1
+]
+
+class AngleVisual():
+    def __init__(self) -> None:
+        # Initialize Sense HAT
+        self._sense = SenseHat()
+        self.clear_display()
     
-    # TODO: Validate the angle is in the correct range.
-    raise NotImplementedError()
+    def clear_display(self) -> None:
+        self._sense.clear()
 
-def get_coords_from_angle(angle: float)-> NDArray:
-    """
-    Fills coordinates in a 2D numpy array (8x8). 
-    
-    If a light is "on", it is marked with a 1, else 0.
+    def _display_arrow(self, arrow_pattern: List[bool]) -> None:
+        """
+        Displays the arrow pattern on the Sense HAT.
 
-    Args:
-        angle (float): current steering angle, in degrees.
+        Args:
+            angle (float): Current steering angle in degrees (for selection).
+            arrow_pattern (list): Flattened 8x8 list of 0s and 1s for the arrow.
+        """
+        pixels = []
+        for cell in arrow_pattern:
+            pixels.append(RED if cell else BLACK)
+        self._sense.set_pixels(pixels)
 
-    Returns:
-        NDArray: 8x8 array containing pixel information.
-    """
-
-    # Start with a map of all zero values.
-    coord_map = np.zeros(shape=(LED_DIM, LED_DIM))
-
-    # TODO: use the angle to iterate to turn on correct pixel locations.
-    raise NotImplementedError()
-
-def draw_grid(coords: NDArray) -> None:
-    """
-    Uses glowbit to activate the Pi LED grid.
-
-    Args:
-        coords (NDArray): 8x8 array containing the illuminated coordinates.
-    """
-
-    # Initialize the 8x8 matrix.
-    matrix = glowbit.matrix(8, 8)
-
-    # Use red for active pixel colors.
-    red = matrix.rgb_color(255, 0, 0)
-
-    rows, cols = coords.shape
-    for i in range(rows):
-        for j in range(cols):
-            # Check if coordinate is active.
-            if coords[i, j]:
-                # Activate pixel at coordinate.
-                matrix.pixel_set(i, j, red)
-
-    # Display the matrix.
-    matrix.show()
-
-def print_grid(coords: NDArray) -> None:
-    """Debugging only method to visualize current matrix.
-    
-    Args:
-        coords (NDArray): 8x8 array containing the illuminated coordinates.
-    """
-    for row in coords:
-        print(" ".join("█" if cell else " " for cell in row))
+    def display_arrow_from_turn(self, turn: TurnState) -> None:
+        # NOTE: use reverse mappings, as the car is going backwards.
+        arrow_map = {
+            TurnState.LEFT_TURN : DOWN_RIGHT_ARROW,
+            TurnState.IDLE : DOWN_ARROW,
+            TurnState.RIGHT_TURN : DOWN_LEFT_ARROW
+        }
+        self._display_arrow(arrow_map.get(turn))

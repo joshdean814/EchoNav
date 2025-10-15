@@ -5,6 +5,7 @@ from typing import Optional
 
 from speaker_beep import SpeakerBeep
 from ultrasonic_capture import UltrasonicCapture
+from angle_capture import AngleCapture
 
 class EchoNav():
     def __init__(self):
@@ -13,8 +14,9 @@ class EchoNav():
         self._running: bool = False
         self._active_flag: threading.Event = threading.Event()
         self._ultrason_cap = UltrasonicCapture(debug=self._debug)
+        self._angle_cap = AngleCapture(debug=self._debug)
         self._speaker_beep = SpeakerBeep(debug=self._debug)
-
+        
     def _control_loop(self):
         if self._debug:
             print("Starting up EchoNav loop...")
@@ -38,6 +40,7 @@ class EchoNav():
         if self._running:
             return
         self._speaker_beep.start()
+        self._angle_cap.start()
         self._active_flag.set()
         self._thread = threading.Thread(target=self._control_loop)
         self._thread.start()
@@ -48,6 +51,7 @@ class EchoNav():
             return
         self._active_flag.clear()
         self._speaker_beep.stop()
+        self._angle_cap.stop()
         
         if self._thread: 
             self._thread.join(timeout=1)
