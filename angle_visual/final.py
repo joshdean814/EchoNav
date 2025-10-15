@@ -2,16 +2,12 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-# from common_api.angle import AngleReading  # Comment out if module not found; use local definition below
-class AngleReading:
-    def __init__(self, value, valid=True):
-        self.value = value
-        self.valid = valid
-
+from common_api.angle import AngleReading
 from sense_hat import SenseHat
 import numpy as np
 from numpy.typing import NDArray
-from time import sleep  # Added for simulation loop
+from time import sleep
+from enum import IntEnum
 
 LED_DIM = 8
 
@@ -21,6 +17,12 @@ sense = SenseHat()
 # Colors
 red = (255, 0, 0)
 black = (0, 0, 0)
+
+# class ArrowState(IntEnum):
+#     DOWN_LEFT_ARROW =   -1
+#     DOWN_ARROW =        0
+#     DOWN_RIGHT_ARROW =  1
+    
 
 # Arrow definitions (8x8 flattened lists of 0s and 1s)
 DOWN_ARROW = [
@@ -34,7 +36,7 @@ DOWN_ARROW = [
     0, 0, 0, 1, 1, 0, 0, 0
 ]
 
-UP_RIGHT_ARROW = [
+DOWN_RIGHT_ARROW = [
     0, 0, 0, 0, 1, 1, 1, 1,
     0, 0, 0, 0, 0, 0, 1, 1,
     0, 0, 0, 0, 0, 1, 0, 1,
@@ -45,7 +47,7 @@ UP_RIGHT_ARROW = [
     1, 0, 0, 0, 0, 0, 0, 0
 ]
 
-UP_LEFT_ARROW = [
+DOWN_LEFT_ARROW = [
     1, 1, 1, 1, 0, 0, 0, 0,
     1, 1, 0, 0, 0, 0, 0, 0,
     1, 0, 1, 0, 0, 0, 0, 0,
@@ -93,11 +95,11 @@ def display_arrow_from_angle(angle: float) -> None:
         angle (float): Current steering angle in degrees.
     """
     if angle < 0:
-        display_arrow(angle, UP_LEFT_ARROW)
+        display_arrow(angle, DOWN_LEFT_ARROW)
     elif angle == 0:
         display_arrow(angle, DOWN_ARROW)
     elif angle > 0:
-        display_arrow(angle, UP_RIGHT_ARROW)
+        display_arrow(angle, DOWN_RIGHT_ARROW)
     else:
         sense.clear()
 

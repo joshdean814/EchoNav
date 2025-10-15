@@ -1,82 +1,72 @@
 import time, math
-import smbus
+from mpu6050 import mpu6050   # if your lib exposes MPU6050 class instead, change import accordingly
 
-# I2C setup
-BUS_NUM = 1
-ADDR    = 0x68      # use 0x69 if AD0=HIGH
+I2C_ADDR = 0x68               # or 0x6A/0x69 per your hardware
+sensor = mpu6050(I2C_ADDR)
 
-# Registers
-WHO_AM_I   = 0x75
-PWR_MGMT_1 = 0x6B
-ACCEL_CFG  = 0x1C
-GYRO_CFG   = 0x1B
-ACCEL_XOUT_H = 0x3B
+# --- params to tune ---
+SAMPLE_HZ        = 100        # loop rate
+VEL_THRESH       = 8.0        # deg/s: must exceed this to count as a turn
+VEL_RELEASE      = 4.0        # deg/s: drop below this to end the turn (hysteresis)
+LPF_ALPHA        = 0.85       # 0..1, higher = smoother
+ANGLE_TRIP       = 10.0       # deg: optional, declare a turn event after this much yaw
+BIAS_SAMPLES     = 200        # samples to average for bias at startup
+# ----------------------
 
-# Sensitivities for ±2g and ±250 dps
-ACCEL_SENS = 16384.0
-GYRO_SENS  = 131.0
+# 1) calibrate gyro Z bias (hold device still!)
+print("Calibrating gyro bias...")
+bias_sum = 0.0
+for _ in range(BIAS_SAMPLES):
+    gz = sensor.get_gyro_data()['z']   # deg/s (this lib reports in deg/s)
+    bias_sum += gz
+    time.sleep(1.0 / SAMPLE_HZ)
+bias_z = bias_sum / BIAS_SAMPLES
+print(f"Bias Z = {bias_z:.3f} deg/s")
 
-bus = smbus.SMBus(BUS_NUM)
+# state
+gz_lpf = 0.0
+yaw_deg = 0.0
+state = "idle"   # idle | turning_left | turning_right
+last_t = time.time()
 
-def r8(reg):
-    return bus.read_byte_data(ADDR, reg)
-
-def w8(reg, val):
-    bus.write_byte_data(ADDR, reg, val & 0xFF)
-
-def read_block(reg, length):
-    return bus.read_i2c_block_data(ADDR, reg, length)
-
-def to_int16(hi, lo):
-    val = (hi << 8) | lo
-    return val - 65536 if val & 0x8000 else val
-
-# ---- bring-up ----
-# Check presence
-who = r8(WHO_AM_I)
-print(f"WHO_AM_I = 0x{who:02X}")
-if who != 0x68:
-    raise RuntimeError("MPU6050 not responding (check address/wiring)")
-
-# Wake device
-w8(PWR_MGMT_1, 0x00)
-time.sleep(0.05)
-
-# Force known ranges: accel ±2g, gyro ±250 dps
-w8(ACCEL_CFG, 0x00)
-w8(GYRO_CFG,  0x00)
-
-print("Reading... Press Ctrl+C to stop.")
-time.sleep(0.05)
-
-prev = time.time()
-roll, pitch = 0.0, 0.0
-alpha = 0.98
+def update_state(gz_f):
+    global state
+    if state == "idle":
+        if gz_f > VEL_THRESH:
+            state = "turning_right"; print("TURN RIGHT start")
+        elif gz_f < -VEL_THRESH:
+            state = "turning_left";  print("TURN LEFT start")
+    elif state == "turning_right":
+        if gz_f < VEL_RELEASE:
+            state = "idle";          print("TURN RIGHT end")
+    elif state == "turning_left":
+        if gz_f > -VEL_RELEASE:
+            state = "idle";          print("TURN LEFT end")
 
 while True:
-    # Read 14 bytes starting at ACCEL_XOUT_H
-    # ax,ay,az,temp,gx,gy,gz (each int16)
-    b = read_block(ACCEL_XOUT_H, 14)
+    t = time.time()
+    dt = t - last_t
+    if dt <= 0: 
+        continue
+    last_t = t
 
-    ax = to_int16(b[0], b[1]) / ACCEL_SENS
-    ay = to_int16(b[2], b[3]) / ACCEL_SENS
-    az = to_int16(b[4], b[5]) / ACCEL_SENS
+    gz = sensor.get_gyro_data()['z'] - bias_z  # bias-corrected deg/s
 
-    gx = to_int16(b[8],  b[9])  / GYRO_SENS
-    gy = to_int16(b[10], b[11]) / GYRO_SENS
-    # gz = to_int16(b[12], b[13]) / GYRO_SENS  # not used for roll/pitch
+    # low-pass filter the rate
+    gz_lpf = LPF_ALPHA * gz_lpf + (1 - LPF_ALPHA) * gz
 
-    now = time.time()
-    dt = now - prev
-    prev = now
+    # integrate to angle (optional; useful for angle-based triggers)
+    yaw_deg += gz_lpf * dt
 
-    # Accelerometer angles (degrees) — NOTE the squares are **Ax**2 and **Az**2 etc.
-    acc_roll  = math.degrees(math.atan2(ay, math.sqrt(ax*ax + az*az)))
-    acc_pitch = math.degrees(math.atan2(-ax, math.sqrt(ay*ay + az*az)))
+    # velocity-based left/right detection with hysteresis
+    update_state(gz_lpf)
 
-    # Integrate gyro
-    roll  = alpha * (roll  + gx * dt) + (1 - alpha) * acc_roll
-    pitch = alpha * (pitch + gy * dt) + (1 - alpha) * acc_pitch
+    # optional: angle-based event (e.g., short nudge)
+    if abs(yaw_deg) >= ANGLE_TRIP:
+        if yaw_deg > 0:
+            print(f"ANGLE TRIP: RIGHT {yaw_deg:.1f}°")
+        else:
+            print(f"ANGLE TRIP: LEFT  {yaw_deg:.1f}°")
+        yaw_deg = 0.0  # reset accumulator after event
 
-    print(f"Roll: {roll:6.2f}°  Pitch: {pitch:6.2f}°")
-    time.sleep(0.05)
+    time.sleep(max(0, (1.0 / SAMPLE_HZ) - (time.time() - t)))
