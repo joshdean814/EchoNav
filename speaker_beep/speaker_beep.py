@@ -1,3 +1,12 @@
+"""This module is responsible for controlling audio feedback through an audio jack. 
+
+File: speaker_beep.py
+Author: Yihang Feng
+Last Modified: 21/10/2025
+
+It generates periodic beeps that vary in frequency based on the proximity
+of detected obstacles, using data provided by ultrasonic distance sensors.
+"""
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
@@ -12,21 +21,24 @@ import time
 try:
     import sounddevice as sd
     SOUND_DEVICE_AVAILABLE = True
+    # Fix the default device to be the Pi audio jack.
     sd.default.device = [-1, 1]
     print("INFO: sounddevice library is available")
 except ImportError:
     SOUND_DEVICE_AVAILABLE = False
     print("WARNING: sounddevice library not available. Using fallback audio method.")
 
+# Audio and timing constants.
 SAMP_RATE = 44100          
 FREQ = 1250.0
 BEEP_PLAY_DURATION = 0.05
 
 # Distance thresholds (in cm). Using named constants makes the mapping
 # from distance -> beep interval easier to read and change.
-MAX_DIST = 50   # alarm range upper bound
-MIN_DIST = 2    # very close
+MAX_DIST = 50
+MIN_DIST = 2
 
+# Interval boundaries for the beeping rate
 MIN_INTERVAL = 0.05
 MAX_INTERVAL = 0.5
 
@@ -35,7 +47,18 @@ MAX_INTERVAL = 0.5
 MAPPING_EXPONENT = 0.5
 
 class SpeakerBeep():
+    """Generates a proximity-based beeping sound through the Raspberry Pi's audio output.
+
+    The beeping interval is dynamically adjusted based on the distance to the nearest
+    detected obstacle. A shorter distance results in faster beeping, creating an
+    intuitive proximity alert system.
+    """
     def __init__(self, debug: bool = False) -> None:
+        """Initializes the SpeakerBeep class.
+        
+        Arguments:
+            debug (bool): True if debug logging is active.
+        """
         self._debug: bool = debug
         self._closest_dist: Optional[float] = None
         self._curr_duration: Optional[float] = None
@@ -51,7 +74,14 @@ class SpeakerBeep():
         self._cached_wave = 0.5 * np.sin(2 * np.pi * FREQ * t)
         
     def update_closest(self, nearby_objects: List[DistanceReading]) -> None:
-        """Update with the closest valid distance reading, ignoring None readings."""
+        """Updates the system with the most recent distance readings.
+
+        Determines which object is closest and updates the beeping duration
+        accordingly. Ignores any sensors that return invalid (None) readings.
+
+        Arguments:
+            nearby_objects (List[DistanceReadings]): most recent distance readings to process.
+        """
         if not nearby_objects:
             return
         
@@ -67,7 +97,19 @@ class SpeakerBeep():
         self._update_duration()
 
     def _map_dist_to_duration(self, distance: float) -> Optional[float]:
-        # Normalize and clamp within [0, 1].
+        """
+        Maps a distance value (cm) to a beeping interval duration (seconds).
+
+        Distances closer to the minimum produce shorter intervals (faster beeps).
+        Normalize and clamp within [0, 1], then uses an exponential mapping curve 
+        for smoother response sounds.
+
+        Arguments:
+            distance (float): distance in centimenters to nearest object.
+
+        Returns:
+            (float | None): new beeping interval, or None.
+        """
         norm = (distance - MIN_DIST) / (MAX_DIST - MIN_DIST)
         norm = max(0.0, min(norm, 1.0))
         
@@ -75,7 +117,7 @@ class SpeakerBeep():
         return max(MIN_INTERVAL, min(MAX_INTERVAL, duration))
                 
     def _update_duration(self) -> None:
-        """Update beep interval based on current distance, handling None values."""
+        """Recalculates the beeping interval duration based on the most recent distance."""
         if self._closest_dist is None:
             with self._lock:
                 self._curr_duration = None
@@ -85,15 +127,23 @@ class SpeakerBeep():
         with self._lock:
             self._curr_duration = duration
 
-    def start(self):
-        """Start the beeping loop once. Safe to call multiple times."""
+    def start(self) -> None:
+        """Start the beeping loop once.
+        
+        Safe to call multiple times.
+        """
         if self._thread and self._thread.is_alive():
             return
         self._play_flag.set()
         self._thread = Thread(target=self._beep_loop)
         self._thread.start()
 
-    def _beep_loop(self):
+    def _beep_loop(self) -> None:
+        """Continuous loop that handles the timing and playback of beep sounds.
+
+        The beeping frequency is adjusted in real time as distance updates
+        are received. The loop runs until stopped externally.
+        """
         if self._debug:
             print("[DEBUG] Beep thread started.")
         while self._play_flag.is_set():
@@ -122,8 +172,11 @@ class SpeakerBeep():
         if self._debug:
             print("[DEBUG] Beep thread exited.")
 
-    def stop(self):
-        """Signal the thread to stop and wait for it to exit."""
+    def stop(self) -> None:
+        """Stops the beeping loop and safely terminates the background thread.
+
+        Cleans up any active sound playback to prevent hanging audio processes.
+        """
         if self._debug:
             print("[DEBUG] Stopping beep thread...")
         self._play_flag.clear()

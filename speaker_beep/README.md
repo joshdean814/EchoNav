@@ -1,15 +1,26 @@
 # Speaker Beep
-This module is responsible for emitting a beep on the audio-jack connection of the RaspberryPi.
+
+This module is responsible for generating audio feedback through the Raspberry Pi’s audio jack. It produces periodic beeps whose frequency varies according to the proximity of detected obstacles.
 
 **Author:** Yihang Feng <br>
-**Last Modified:** 10/01/2025
+**Last Modified:** 21/10/2025
 
 ## Overview
-The code implements the SpeakerBeep class to control to use `DistanceReading` objects containing distance information to nearby foreign objects relative to the 4 corners of the car. With these distances, it controls a beep emitted on the speaker.
 
-### Strategy
-The code implements the following functions:
-- `update_closest` -> Identifies the nearest "threat" to the car based on distance detector readings.
-- `update_duration` -> Maps a duration float value in sec for each iteration of the beep.
-- `emit_beep` -> Plays the beep object on the speaker using sounddevice.
-- `stop_beep` -> Stops any active beeping using sounddevice.
+The code implements the `SpeakerBeep` class, which uses `DistanceReading` objects to determine the closest detected obstacle around the vehicle. Based on the measured distance, the module adjusts the interval between beeps to give intuitive auditory feedback.
+
+
+## Strategy
+
+The module performs the following key tasks:
+
+- Initializes a continuous beep waveform and prepares a background thread to manage playback.
+- Dynamically adjusts beep intervals based on distance values using an exponential mapping curve.
+- Provides continuous feedback until stopped or distance updates are no longer available.
+
+## Core Functions
+
+- `update_closest` -> Processes a list of DistanceReading objects and identifies the nearest valid distance.
+- `_map_dist_to_duration` -> Converts a distance value (in cm) to a beeping interval (in seconds).
+- `_beep_loop` -> Runs a threaded loop to continuously play and space out beeps based on the current interval.
+- `start` -> Starts the background beeping thread if not already running.
