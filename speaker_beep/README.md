@@ -24,3 +24,7 @@ The module performs the following key tasks:
 - `_map_dist_to_duration` -> Converts a distance value (in cm) to a beeping interval (in seconds).
 - `_beep_loop` -> Runs a threaded loop to continuously play and space out beeps based on the current interval.
 - `start` -> Starts the background beeping thread if not already running.
+
+## Testing
+
+The module also utilized two testing files `test_speaker.py` and `test_speaker2.py` to roughly validate module behavior.
