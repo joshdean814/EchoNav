@@ -1,59 +1,28 @@
-from sense_hat import SenseHat
-sense = SenseHat()
+# Angle Visual
 
-red = (255, 0, 0)
-black = (0, 0, 0)
+This module handles the visual representation of the vehicle’s turn direction using the Sense HAT 8x8 LED matrix.
 
-# Define a down arrow (8x8)
-DOWN arrow = [
-    black, black, black, red,   red,   black, black, black,
-    black, black, black, red,   red,   black, black, black,
-    black, black, black, red,   red,   black, black, black,
-    black, black, black, red,   red,   black, black, black,
-    red,   black, black, red,   red,   black, black, red,
-    black, red,   black, red,   red,   black, red,   black,
-    black, black, red,   red,   red,   red,   black, black,
-    black, black, black, red,   red,   black, black, black
-]
-# Define a diagonal up arrow pointing right (8x8)
-UP-RIGHT arrow = [
-    black, black, black, black, red, red, red, red,
-    black, black, black, black, black, black, red, red,
-    black, black, black, black, black, red, black, red,
-    black, black, black, black, red, black, black, red,
-    black, black, black, red, black, black, black, black,
-    black, black, red, black, black, black, black, black,
-    black, red, black, black, black, black, black, black,
-    red, black, black, black, black, black, black, black
-]
-# define a diagonal up arrow pointing left
+**Author:** Anju Damodaran <br>
+**Last Modified:** 21/10/2025
 
-UP-LEFT arrow = [
-    red, red, red, red, black, black, black, black, 
-    red, red, black, black, black, black, black, black,
-    red, black, red, black, black, black, black, black,
-    red, black, black, red, black, black, black, black,
-    black, black, black, black, red, black, black, black,
-    black, black, black, black, black, red, black, black,
-    black, black, black, black, black, black, red, black,
-    black, black, black, black, black, black, black, red
-]
+# Overview
 
-sense.set_pixels(arrow)  
+The AngleVisual class provides a simple interface between the turn state detection system and the Sense HAT LED display.
+It visualizes the vehicle’s current steering direction by showing dynamic arrow patterns that point left, right, or down (idle/straight).
 
-# Example tyre angle
-tyre_angle = 10  # Change to -10, 0, or 10 for testing
+# Strategy
 
-# Display arrows based on tyre angle
-if tyre_angle (-10<0):
-    sense.set_pixels(up_left_arrow)
-    print("Tyre angle is -10° — displaying UP-LEFT arrow.")
-elif tyre_angle == 0:
-    sense.set_pixels(down_arrow)
-    print("Tyre angle is 0° — displaying DOWN arrow.")
-elif tyre_angle (10>0):
-    sense.set_pixels(up_right_arrow)
-    print("Tyre angle is 10° — displaying UP-RIGHT arrow.")
-else:
-    sense.clear()
-    print("Tyre angle outside defined range — LED matrix cleared.")
+The module defines a set of pre-built arrow patterns represented as flattened 8×8 boolean matrices.
+These are converted to red/black pixel maps and displayed on the Sense HAT using its built-in `set_pixels`.
+
+# Arrows:
+
+- `LEFT_TURN` -> displays a down-right arrow (mirrored perspective for reversing).
+- `RIGHT_TURN` -> displays a down-left arrow.
+- `IDLE` -> displays a downward arrow.
+
+# Core Functions
+
+- `display_arrow_from_turn` -> displays the corresponding arrow for a given TurnState.
+- `_display_arrow` -> converts a binary arrow pattern into RGB pixel data and renders it on the LED grid.
+- `clear_display` -> clears the LED matrix, turning off all pixels.
