@@ -14,7 +14,7 @@ This project was developed for the course assignment for 1DT086 & 1DT032: Intro.
 |------|------|------------------|
 | Josh Dean | Leader | Task coordination, GitHub management, hardware setup, collision detection, testing |
 | Yihang Feng | Time Keeper | Meeting scheduling, auditory alert feedback |
-|  Prabandh Battu | Developer | Steering angle capturing, hardware setup |
+| Prabandh Battu | Developer | Steering angle capturing, hardware setup |
 | Anju Damodaran | Recorder | Visual feedback display |
 
 ## Timeline
